@@ -8,21 +8,21 @@ import uuid
 from typing import Any
 
 from kvfleet.adapters.base import ChatMessage, ChatRequest, ChatResponse, InferenceAdapter
-from kvfleet.adapters.openai_compat import OpenAICompatAdapter
-from kvfleet.adapters.vllm import VLLMAdapter
+from kvfleet.adapters.custom_http import CustomHTTPAdapter
 from kvfleet.adapters.ollama import OllamaAdapter
+from kvfleet.adapters.openai_compat import OpenAICompatAdapter
 from kvfleet.adapters.tgi import TGIAdapter
 from kvfleet.adapters.triton import TritonAdapter
-from kvfleet.adapters.custom_http import CustomHTTPAdapter
+from kvfleet.adapters.vllm import VLLMAdapter
 from kvfleet.cache.fingerprints import PromptFingerprinter
 from kvfleet.cache.kv_affinity import KVAffinityScorer
-from kvfleet.config.schema import FleetConfig, ModelConfig, ProviderType
+from kvfleet.config.schema import FleetConfig, ProviderType
 from kvfleet.eval.shadow import ShadowTrafficManager
 from kvfleet.policy.engine import PolicyContext, PolicyEngine
 from kvfleet.policy.pii import PIIDetector
 from kvfleet.policy.tenant import TenantManager
 from kvfleet.registry.models import ModelRegistry
-from kvfleet.router.explain import CandidateScore, RouteExplanation
+from kvfleet.router.explain import RouteExplanation
 from kvfleet.router.fallback import FallbackChain
 from kvfleet.router.scoring import ScoringContext, ScoringEngine
 from kvfleet.router.strategies import RoutingStrategy, get_strategy
@@ -63,7 +63,9 @@ class Router:
         self.scoring_engine = ScoringEngine(config.scoring_weights)
         self.strategy = self._create_strategy()
         self.fallback_chain = FallbackChain(config.fallback)
-        self.fingerprinter = PromptFingerprinter(prefix_tokens=config.cache_affinity.prefix_hash_tokens)
+        self.fingerprinter = PromptFingerprinter(
+            prefix_tokens=config.cache_affinity.prefix_hash_tokens
+        )
         self.affinity_scorer = KVAffinityScorer(
             virtual_nodes=config.cache_affinity.consistent_hash_replicas,
             session_ttl=config.cache_affinity.session_ttl_seconds,
@@ -74,9 +76,15 @@ class Router:
         self.policy_engine = PolicyEngine(config.policy)
         self.pii_detector = PIIDetector()
         self.tenant_manager = TenantManager(config.tenants)
-        self.health_manager = HealthManager(check_interval_seconds=config.telemetry.health_check_interval_seconds)
-        self.telemetry = TelemetryCollector(poll_interval_seconds=config.telemetry.health_check_interval_seconds)
-        self.metrics = MetricsExporter(port=config.telemetry.prometheus_port, enabled=config.telemetry.prometheus_enabled)
+        self.health_manager = HealthManager(
+            check_interval_seconds=config.telemetry.health_check_interval_seconds
+        )
+        self.telemetry = TelemetryCollector(
+            poll_interval_seconds=config.telemetry.health_check_interval_seconds
+        )
+        self.metrics = MetricsExporter(
+            port=config.telemetry.prometheus_port, enabled=config.telemetry.prometheus_enabled
+        )
         self.shadow_manager = ShadowTrafficManager(
             sample_rate=config.shadow.sample_rate,
             shadow_models=config.shadow.shadow_models,
@@ -216,7 +224,10 @@ class Router:
                 max_affinity = max(affinity.values()) if affinity else 0.0
                 cache_affinity_scores[model.name] = max_affinity
             explanation.cache_affinity_used = True
-            explanation.cache_hit = any(s > self.config.cache_affinity.min_affinity_score for s in cache_affinity_scores.values())
+            explanation.cache_hit = any(
+                s > self.config.cache_affinity.min_affinity_score
+                for s in cache_affinity_scores.values()
+            )
 
         # Step 5: Build scoring context
         scoring_ctx = ScoringContext(
@@ -224,9 +235,9 @@ class Router:
             tenant_id=tenant_id,
             tags=tags,
             cache_affinity_scores=cache_affinity_scores,
-            endpoint_health={
-                ep: h for ep, h in self.health_manager._health.items()
-            } if self.health_manager._health else None,
+            endpoint_health=dict(self.health_manager._health.items())
+            if self.health_manager._health
+            else None,
         )
 
         # Step 6: Strategy selection
@@ -234,7 +245,10 @@ class Router:
         explanation.candidates = candidate_scores
 
         # Find selected model
-        selected = next((c for c in candidate_scores if c.selected), candidate_scores[0] if candidate_scores else None)
+        selected = next(
+            (c for c in candidate_scores if c.selected),
+            candidate_scores[0] if candidate_scores else None,
+        )
         if selected is None:
             raise RuntimeError("Strategy did not select any model")
 
@@ -263,7 +277,8 @@ class Router:
         if self.shadow_manager.should_shadow():
             explanation.shadow_models = self.shadow_manager.shadow_models
             import asyncio
-            asyncio.create_task(
+
+            self._shadow_task = asyncio.create_task(
                 self.shadow_manager.execute_shadow(
                     request=request,
                     primary_model=selected_model,
@@ -321,7 +336,9 @@ class Router:
         cache_affinity_scores: dict[str, float] = {}
         if self.config.cache_affinity.enabled:
             for model in candidates:
-                affinity = self.affinity_scorer.score_affinity(fingerprint, model.name, model.all_endpoints())
+                affinity = self.affinity_scorer.score_affinity(
+                    fingerprint, model.name, model.all_endpoints()
+                )
                 cache_affinity_scores[model.name] = max(affinity.values()) if affinity else 0.0
             explanation.cache_affinity_used = True
 
@@ -333,7 +350,10 @@ class Router:
 
         candidate_scores = self.strategy.select(candidates, scoring_ctx)
         explanation.candidates = candidate_scores
-        selected = next((c for c in candidate_scores if c.selected), candidate_scores[0] if candidate_scores else None)
+        selected = next(
+            (c for c in candidate_scores if c.selected),
+            candidate_scores[0] if candidate_scores else None,
+        )
         if selected:
             explanation.selected_model = selected.model_name
             explanation.selected_endpoint = selected.endpoint
@@ -348,7 +368,7 @@ class Router:
     async def health_check_all(self) -> dict[str, Any]:
         """Run health checks on all endpoints."""
         results = await self.telemetry.collect_once()
-        for ep, health in results.items():
+        for _ep, health in results.items():
             self.health_manager.update_health(health)
         return {ep: {"healthy": h.healthy, "latency_ms": h.latency_ms} for ep, h in results.items()}
 

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
@@ -14,7 +15,6 @@ from kvfleet.adapters.base import (
     EndpointHealth,
     InferenceAdapter,
     StreamChunk,
-    Usage,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,7 +51,9 @@ class CustomHTTPAdapter(InferenceAdapter):
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
             all_headers = {"Content-Type": "application/json", **self.extra_headers}
-            self._client = httpx.AsyncClient(base_url=self.endpoint, headers=all_headers, timeout=self.timeout)
+            self._client = httpx.AsyncClient(
+                base_url=self.endpoint, headers=all_headers, timeout=self.timeout
+            )
         return self._client
 
     async def chat(self, request: ChatRequest) -> ChatResponse:
@@ -110,6 +112,7 @@ class CustomHTTPAdapter(InferenceAdapter):
                             return
                         try:
                             import json
+
                             data = json.loads(data_str)
                             content = data.get(self.response_content_key, data.get("text", ""))
                             yield StreamChunk(
@@ -141,7 +144,9 @@ class CustomHTTPAdapter(InferenceAdapter):
                 last_checked=time.time(),
             )
         except httpx.RequestError as e:
-            return EndpointHealth(endpoint=self.endpoint, healthy=False, error=str(e), last_checked=time.time())
+            return EndpointHealth(
+                endpoint=self.endpoint, healthy=False, error=str(e), last_checked=time.time()
+            )
 
     async def close(self) -> None:
         """Close the HTTP client."""

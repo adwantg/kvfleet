@@ -1,12 +1,10 @@
 """Tests for telemetry, health manager, metrics, and GPU state."""
 
-import pytest
 
 from kvfleet.adapters.base import EndpointHealth
+from kvfleet.telemetry.gpu import GPUState, GPUStateAggregator
 from kvfleet.telemetry.health import HealthManager
 from kvfleet.telemetry.metrics import MetricsExporter
-from kvfleet.telemetry.gpu import GPUState, GPUStateAggregator
-
 
 # ───────────────────────── Health Manager ─────────────────────────
 
@@ -14,18 +12,26 @@ from kvfleet.telemetry.gpu import GPUState, GPUStateAggregator
 class TestHealthManager:
     def test_healthy_endpoint(self):
         manager = HealthManager()
-        manager.update_health(EndpointHealth(endpoint="http://a:8000", healthy=True, last_checked=1e18))
+        manager.update_health(
+            EndpointHealth(endpoint="http://a:8000", healthy=True, last_checked=1e18)
+        )
         assert manager.is_healthy("http://a:8000")
 
     def test_unhealthy_endpoint(self):
         manager = HealthManager(stale_threshold_seconds=999999)
-        manager.update_health(EndpointHealth(endpoint="http://a:8000", healthy=False, last_checked=1e18))
+        manager.update_health(
+            EndpointHealth(endpoint="http://a:8000", healthy=False, last_checked=1e18)
+        )
         assert not manager.is_healthy("http://a:8000")
 
     def test_circuit_breaker(self):
-        manager = HealthManager(failure_threshold=2, recovery_timeout_seconds=3600, stale_threshold_seconds=999999)
+        manager = HealthManager(
+            failure_threshold=2, recovery_timeout_seconds=3600, stale_threshold_seconds=999999
+        )
         for _ in range(3):
-            manager.update_health(EndpointHealth(endpoint="http://a:8000", healthy=False, last_checked=1e18))
+            manager.update_health(
+                EndpointHealth(endpoint="http://a:8000", healthy=False, last_checked=1e18)
+            )
         assert not manager.is_healthy("http://a:8000")
 
     def test_unknown_is_optimistic(self):
@@ -34,8 +40,12 @@ class TestHealthManager:
 
     def test_filter_healthy(self):
         manager = HealthManager(stale_threshold_seconds=999999)
-        manager.update_health(EndpointHealth(endpoint="http://a:8000", healthy=True, last_checked=1e18))
-        manager.update_health(EndpointHealth(endpoint="http://b:8000", healthy=False, last_checked=1e18))
+        manager.update_health(
+            EndpointHealth(endpoint="http://a:8000", healthy=True, last_checked=1e18)
+        )
+        manager.update_health(
+            EndpointHealth(endpoint="http://b:8000", healthy=False, last_checked=1e18)
+        )
         healthy = manager.get_healthy_endpoints(["http://a:8000", "http://b:8000", "http://c:8000"])
         assert "http://a:8000" in healthy
         assert "http://b:8000" not in healthy
@@ -43,17 +53,27 @@ class TestHealthManager:
 
     def test_load_scores(self):
         manager = HealthManager()
-        manager.update_health(EndpointHealth(
-            endpoint="http://a:8000", healthy=True, queue_depth=50, active_requests=25,
-        ))
+        manager.update_health(
+            EndpointHealth(
+                endpoint="http://a:8000",
+                healthy=True,
+                queue_depth=50,
+                active_requests=25,
+            )
+        )
         scores = manager.get_load_scores(["http://a:8000"])
         assert 0.0 <= scores["http://a:8000"] <= 1.0
 
     def test_warm_detection(self):
         manager = HealthManager()
-        manager.update_health(EndpointHealth(
-            endpoint="http://a:8000", healthy=True, active_requests=5, tokens_per_second=100,
-        ))
+        manager.update_health(
+            EndpointHealth(
+                endpoint="http://a:8000",
+                healthy=True,
+                active_requests=5,
+                tokens_per_second=100,
+            )
+        )
         assert manager.is_warm("http://a:8000")
         assert not manager.is_warm("http://unknown:8000")
 
@@ -90,10 +110,13 @@ class TestGPUState:
 class TestGPUStateAggregator:
     def test_update_from_health(self):
         agg = GPUStateAggregator()
-        state = agg.update_from_health("http://a:8000", {
-            "gpu_memory_used_pct": 60.0,
-            "gpu_utilization_pct": 70.0,
-        })
+        state = agg.update_from_health(
+            "http://a:8000",
+            {
+                "gpu_memory_used_pct": 60.0,
+                "gpu_utilization_pct": 70.0,
+            },
+        )
         assert state.gpu_memory_used_pct == 60.0
         assert agg.get_state("http://a:8000") is not None
 

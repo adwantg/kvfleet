@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
@@ -28,7 +29,9 @@ class TritonAdapter(InferenceAdapter):
     adds Triton-specific health/metrics collection.
     """
 
-    def __init__(self, endpoint: str, model_id: str = "", timeout: float = 60.0, **kwargs: Any) -> None:
+    def __init__(
+        self, endpoint: str, model_id: str = "", timeout: float = 60.0, **kwargs: Any
+    ) -> None:
         super().__init__(endpoint, model_id, timeout, **kwargs)
         self._client: httpx.AsyncClient | None = None
 
@@ -82,6 +85,7 @@ class TritonAdapter(InferenceAdapter):
         payload["stream"] = True
 
         import json as json_mod
+
         async with client.stream("POST", "/v1/chat/completions", json=payload) as resp:
             resp.raise_for_status()
             async for line in resp.aiter_lines():
@@ -116,7 +120,9 @@ class TritonAdapter(InferenceAdapter):
                 last_checked=time.time(),
             )
         except httpx.RequestError as e:
-            return EndpointHealth(endpoint=self.endpoint, healthy=False, error=str(e), last_checked=time.time())
+            return EndpointHealth(
+                endpoint=self.endpoint, healthy=False, error=str(e), last_checked=time.time()
+            )
 
     async def get_metrics(self) -> dict[str, Any]:
         """Get Triton metrics."""

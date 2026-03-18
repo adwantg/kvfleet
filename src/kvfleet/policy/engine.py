@@ -63,26 +63,34 @@ class PolicyEngine:
         # PII detection
         if self.config.pii_detection and context.has_pii:
             before = len(filtered)
-            filtered = [m for m in filtered if "confidential" in m.allowed_data_classes or self._is_private_model(m)]
+            filtered = [
+                m
+                for m in filtered
+                if "confidential" in m.allowed_data_classes or self._is_private_model(m)
+            ]
             if len(filtered) < before:
-                decisions.append(PolicyDecision(
-                    rule_name="pii_detection",
-                    passed=len(filtered) > 0,
-                    reason=f"PII detected — restricted to private models ({before - len(filtered)} models removed)",
-                    action="require_private",
-                ))
+                decisions.append(
+                    PolicyDecision(
+                        rule_name="pii_detection",
+                        passed=len(filtered) > 0,
+                        reason=f"PII detected — restricted to private models ({before - len(filtered)} models removed)",
+                        action="require_private",
+                    )
+                )
 
         # Data class enforcement
         if context.data_class:
             before = len(filtered)
             filtered = [m for m in filtered if context.data_class in m.allowed_data_classes]
             if len(filtered) < before:
-                decisions.append(PolicyDecision(
-                    rule_name="data_class_enforcement",
-                    passed=len(filtered) > 0,
-                    reason=f"Data class '{context.data_class}' filter removed {before - len(filtered)} models",
-                    action="filter",
-                ))
+                decisions.append(
+                    PolicyDecision(
+                        rule_name="data_class_enforcement",
+                        passed=len(filtered) > 0,
+                        reason=f"Data class '{context.data_class}' filter removed {before - len(filtered)} models",
+                        action="filter",
+                    )
+                )
 
         # Custom rules
         for rule in self._rules:
@@ -106,20 +114,26 @@ class PolicyEngine:
         if rule.action == "require_private":
             filtered = [m for m in candidates if self._is_private_model(m)]
             return filtered, PolicyDecision(
-                rule_name=rule.name, passed=len(filtered) > 0,
-                reason=rule.description or "Require private model", action=rule.action,
+                rule_name=rule.name,
+                passed=len(filtered) > 0,
+                reason=rule.description or "Require private model",
+                action=rule.action,
             )
         elif rule.action == "block":
             filtered = [m for m in candidates if m.name not in rule.target_models]
             return filtered, PolicyDecision(
-                rule_name=rule.name, passed=len(filtered) > 0,
-                reason=f"Blocked models: {rule.target_models}", action=rule.action,
+                rule_name=rule.name,
+                passed=len(filtered) > 0,
+                reason=f"Blocked models: {rule.target_models}",
+                action=rule.action,
             )
         elif rule.action == "require_model":
             filtered = [m for m in candidates if m.name in rule.target_models]
             return filtered, PolicyDecision(
-                rule_name=rule.name, passed=len(filtered) > 0,
-                reason=f"Required specific models: {rule.target_models}", action=rule.action,
+                rule_name=rule.name,
+                passed=len(filtered) > 0,
+                reason=f"Required specific models: {rule.target_models}",
+                action=rule.action,
             )
         elif rule.action == "allow":
             return None  # No filtering

@@ -3,14 +3,17 @@
 import pytest
 
 from kvfleet.config.schema import (
-    ModelConfig, PolicyConfig, PolicyRule, ProviderType,
-    TenantConfig, BudgetConfig,
+    BudgetConfig,
+    ModelConfig,
+    PolicyConfig,
+    PolicyRule,
+    ProviderType,
+    TenantConfig,
 )
-from kvfleet.policy.engine import PolicyEngine, PolicyContext
+from kvfleet.policy.engine import PolicyContext, PolicyEngine
 from kvfleet.policy.pii import PIIDetector
 from kvfleet.policy.residency import ResidencyEngine, ResidencyRule
-from kvfleet.policy.tenant import TenantManager, BudgetTracker
-
+from kvfleet.policy.tenant import BudgetTracker, TenantManager
 
 # ───────────────────────── Policy Engine ─────────────────────────
 
@@ -18,10 +21,18 @@ from kvfleet.policy.tenant import TenantManager, BudgetTracker
 @pytest.fixture
 def models():
     return [
-        ModelConfig(name="local-llama", endpoint="http://a:8000", provider=ProviderType.VLLM,
-                    allowed_data_classes=["public", "internal", "confidential"]),
-        ModelConfig(name="openai-gpt", endpoint="https://api.openai.com", provider=ProviderType.OPENAI_COMPAT,
-                    allowed_data_classes=["public"]),
+        ModelConfig(
+            name="local-llama",
+            endpoint="http://a:8000",
+            provider=ProviderType.VLLM,
+            allowed_data_classes=["public", "internal", "confidential"],
+        ),
+        ModelConfig(
+            name="openai-gpt",
+            endpoint="https://api.openai.com",
+            provider=ProviderType.OPENAI_COMPAT,
+            allowed_data_classes=["public"],
+        ),
     ]
 
 
@@ -35,16 +46,18 @@ class TestPolicyEngine:
     def test_data_class_filter(self, models):
         engine = PolicyEngine(PolicyConfig(enabled=True))
         ctx = PolicyContext(data_class="confidential")
-        filtered, decisions = engine.evaluate(models, ctx)
+        filtered, _decisions = engine.evaluate(models, ctx)
         assert len(filtered) == 1
         assert filtered[0].name == "local-llama"
 
     def test_pii_filter(self, models):
         engine = PolicyEngine(PolicyConfig(enabled=True, pii_detection=True))
         ctx = PolicyContext(has_pii=True)
-        filtered, decisions = engine.evaluate(models, ctx)
+        filtered, _decisions = engine.evaluate(models, ctx)
         # Only private models should remain
-        assert all(m.provider.value in ("vllm", "triton", "tgi", "ollama", "custom_http") for m in filtered)
+        assert all(
+            m.provider.value in ("vllm", "triton", "tgi", "ollama", "custom_http") for m in filtered
+        )
 
     def test_custom_rule_block(self, models):
         rule = PolicyRule(
@@ -54,7 +67,7 @@ class TestPolicyEngine:
             target_models=["openai-gpt"],
         )
         engine = PolicyEngine(PolicyConfig(enabled=True, rules=[rule]))
-        filtered, decisions = engine.evaluate(models, PolicyContext())
+        filtered, _decisions = engine.evaluate(models, PolicyContext())
         assert len(filtered) == 1
         assert filtered[0].name == "local-llama"
 
@@ -67,7 +80,7 @@ class TestPolicyEngine:
         )
         engine = PolicyEngine(PolicyConfig(enabled=True, rules=[rule]))
         ctx = PolicyContext(data_class="confidential")
-        filtered, decisions = engine.evaluate(models, ctx)
+        filtered, _decisions = engine.evaluate(models, ctx)
         assert len(filtered) == 1
         assert filtered[0].name == "local-llama"
 
@@ -125,21 +138,25 @@ class TestResidencyEngine:
         assert engine.is_compliant("us-east-1", "us-west-2", "vllm")
 
     def test_region_restriction(self):
-        rules = [ResidencyRule(
-            name="eu-data",
-            source_regions=["eu-west-1", "eu-central-1"],
-            allowed_model_regions=["eu-west-1", "eu-central-1"],
-        )]
+        rules = [
+            ResidencyRule(
+                name="eu-data",
+                source_regions=["eu-west-1", "eu-central-1"],
+                allowed_model_regions=["eu-west-1", "eu-central-1"],
+            )
+        ]
         engine = ResidencyEngine(rules=rules)
         assert engine.is_compliant("eu-west-1", "eu-west-1", "vllm")
         assert not engine.is_compliant("eu-west-1", "us-east-1", "vllm")
 
     def test_blocked_provider(self):
-        rules = [ResidencyRule(
-            name="no-cloud",
-            source_regions=["gov-us-1"],
-            blocked_providers=["openai_compat", "bedrock"],
-        )]
+        rules = [
+            ResidencyRule(
+                name="no-cloud",
+                source_regions=["gov-us-1"],
+                blocked_providers=["openai_compat", "bedrock"],
+            )
+        ]
         engine = ResidencyEngine(rules=rules)
         assert not engine.is_compliant("gov-us-1", "us-east-1", "openai_compat")
         assert engine.is_compliant("gov-us-1", "us-east-1", "vllm")

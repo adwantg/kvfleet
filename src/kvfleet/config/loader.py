@@ -61,7 +61,9 @@ def _coerce_value(value: str) -> Any:
     return value
 
 
-def load_config(path: str | Path | None = None, overrides: dict[str, Any] | None = None) -> FleetConfig:
+def load_config(
+    path: str | Path | None = None, overrides: dict[str, Any] | None = None
+) -> FleetConfig:
     """Load fleet configuration from YAML file with env var overrides.
 
     Args:

@@ -19,7 +19,7 @@ class RateLimitState:
     model_id: str = ""
 
     # Limits (from provider headers)
-    requests_per_minute: int = 0       # 0 = unknown/unlimited
+    requests_per_minute: int = 0  # 0 = unknown/unlimited
     tokens_per_minute: int = 0
     requests_per_day: int = 0
 
@@ -34,7 +34,7 @@ class RateLimitState:
 
     # Retry-after (from 429 responses)
     retry_after_seconds: float = 0.0
-    retry_after_until: float = 0.0      # timestamp
+    retry_after_until: float = 0.0  # timestamp
 
     # Timestamps
     minute_window_start: float = field(default_factory=time.time)
@@ -170,7 +170,9 @@ class RateLimitTracker:
             state.last_updated = time.time()
         logger.warning(
             "Rate limited: %s/%s — cooldown %.1fs",
-            endpoint, model_id, cooldown,
+            endpoint,
+            model_id,
+            cooldown,
         )
 
     def should_throttle(self, endpoint: str, model_id: str = "") -> bool:

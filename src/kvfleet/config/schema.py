@@ -56,23 +56,33 @@ class ModelConfig(BaseModel):
     name: str = Field(..., description="Unique model identifier")
     endpoint: str = Field(..., description="Inference endpoint URL")
     provider: ProviderType = Field(default=ProviderType.OPENAI_COMPAT)
-    model_id: str = Field(default="", description="Model ID sent to the provider (e.g., 'meta-llama/Llama-3-8B')")
+    model_id: str = Field(
+        default="", description="Model ID sent to the provider (e.g., 'meta-llama/Llama-3-8B')"
+    )
     replicas: list[str] = Field(default_factory=list, description="Additional replica endpoints")
     capabilities: ModelCapabilities = Field(default_factory=ModelCapabilities)
 
     # Priors for scoring
-    cost_per_1k_input_tokens: float = Field(default=0.0, description="Estimated input cost per 1K tokens")
-    cost_per_1k_output_tokens: float = Field(default=0.0, description="Estimated output cost per 1K tokens")
+    cost_per_1k_input_tokens: float = Field(
+        default=0.0, description="Estimated input cost per 1K tokens"
+    )
+    cost_per_1k_output_tokens: float = Field(
+        default=0.0, description="Estimated output cost per 1K tokens"
+    )
     latency_p50_ms: float = Field(default=500.0, description="Expected p50 latency in ms")
     latency_p95_ms: float = Field(default=2000.0, description="Expected p95 latency in ms")
-    quality_score: float = Field(default=0.5, ge=0.0, le=1.0, description="Prior quality score (0–1)")
+    quality_score: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Prior quality score (0-1)"
+    )
 
     # Constraints
     allowed_data_classes: list[str] = Field(
         default_factory=lambda: ["public", "internal", "confidential"],
         description="Data classification levels this model may process",
     )
-    tags: dict[str, str] = Field(default_factory=dict, description="Arbitrary tags for rule matching")
+    tags: dict[str, str] = Field(
+        default_factory=dict, description="Arbitrary tags for rule matching"
+    )
     weight: float = Field(default=1.0, ge=0.0, description="Weight for weighted routing")
     enabled: bool = Field(default=True, description="Whether this model is available for routing")
 
@@ -94,8 +104,12 @@ class FallbackConfig(BaseModel):
 
     enabled: bool = True
     max_attempts: int = Field(default=3, ge=1)
-    promote_on_timeout: bool = Field(default=True, description="Escalate to higher-quality model on timeout")
-    fallback_order: list[str] = Field(default_factory=list, description="Ordered list of model names to try")
+    promote_on_timeout: bool = Field(
+        default=True, description="Escalate to higher-quality model on timeout"
+    )
+    fallback_order: list[str] = Field(
+        default_factory=list, description="Ordered list of model names to try"
+    )
     timeout_ms: float = Field(default=10000.0, description="Timeout before triggering fallback")
 
 
@@ -115,9 +129,15 @@ class CacheAffinityConfig(BaseModel):
 
     enabled: bool = True
     session_ttl_seconds: int = Field(default=3600, description="TTL for session affinity mappings")
-    prefix_hash_tokens: int = Field(default=128, description="Number of prefix tokens to hash for affinity")
-    min_affinity_score: float = Field(default=0.3, ge=0.0, le=1.0, description="Min score to prefer affinity match")
-    consistent_hash_replicas: int = Field(default=150, description="Virtual nodes for consistent hashing ring")
+    prefix_hash_tokens: int = Field(
+        default=128, description="Number of prefix tokens to hash for affinity"
+    )
+    min_affinity_score: float = Field(
+        default=0.3, ge=0.0, le=1.0, description="Min score to prefer affinity match"
+    )
+    consistent_hash_replicas: int = Field(
+        default=150, description="Virtual nodes for consistent hashing ring"
+    )
 
 
 class ShadowConfig(BaseModel):
@@ -125,7 +145,9 @@ class ShadowConfig(BaseModel):
 
     enabled: bool = False
     shadow_models: list[str] = Field(default_factory=list, description="Models to shadow-route to")
-    sample_rate: float = Field(default=0.1, ge=0.0, le=1.0, description="Fraction of traffic to shadow")
+    sample_rate: float = Field(
+        default=0.1, ge=0.0, le=1.0, description="Fraction of traffic to shadow"
+    )
     log_outputs: bool = True
     compare_outputs: bool = False
 
@@ -145,8 +167,12 @@ class PolicyRule(BaseModel):
 
     name: str
     description: str = ""
-    condition: str = Field(..., description="Condition expression (e.g., 'data_class == confidential')")
-    action: str = Field(..., description="Action: 'require_private', 'block', 'allow', 'require_model'")
+    condition: str = Field(
+        ..., description="Condition expression (e.g., 'data_class == confidential')"
+    )
+    action: str = Field(
+        ..., description="Action: 'require_private', 'block', 'allow', 'require_model'"
+    )
     target_models: list[str] = Field(default_factory=list, description="Models this rule targets")
     priority: int = Field(default=100, description="Lower = higher priority")
 
@@ -189,7 +215,9 @@ class SLOConfig(BaseModel):
     target_p95_latency_ms: float = Field(default=5000.0)
     max_cost_per_request: float = Field(default=0.10)
     min_quality_score: float = Field(default=0.5)
-    load_shed_threshold: float = Field(default=0.9, description="Queue saturation threshold for load shedding")
+    load_shed_threshold: float = Field(
+        default=0.9, description="Queue saturation threshold for load shedding"
+    )
 
 
 class GatewayConfig(BaseModel):

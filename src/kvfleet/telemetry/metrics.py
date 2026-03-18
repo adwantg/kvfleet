@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 try:
     from prometheus_client import Counter, Gauge, Histogram, Info, start_http_server
+
     HAS_PROMETHEUS = True
 except ImportError:
     HAS_PROMETHEUS = False
@@ -106,11 +106,15 @@ class MetricsExporter:
         except OSError as e:
             logger.warning("Could not start metrics server on port %d: %s", self.port, e)
 
-    def record_route(self, strategy: str, model: str, latency_seconds: float, success: bool = True) -> None:
+    def record_route(
+        self, strategy: str, model: str, latency_seconds: float, success: bool = True
+    ) -> None:
         """Record a routing decision."""
         if not self.enabled:
             return
-        self.route_requests.labels(strategy=strategy, status="success" if success else "error").inc()
+        self.route_requests.labels(
+            strategy=strategy, status="success" if success else "error"
+        ).inc()
         self.route_latency.labels(strategy=strategy).observe(latency_seconds)
         self.model_selected.labels(model=model).inc()
 
@@ -138,7 +142,9 @@ class MetricsExporter:
             return
         self.shadow_requests.labels(model=model).inc()
 
-    def update_health(self, model: str, endpoint: str, healthy: bool, queue_depth: int = 0, gpu_pct: float = 0.0) -> None:
+    def update_health(
+        self, model: str, endpoint: str, healthy: bool, queue_depth: int = 0, gpu_pct: float = 0.0
+    ) -> None:
         """Update health gauges for a model endpoint."""
         if not self.enabled:
             return

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import abc
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator
+from typing import Any
 
 
 @dataclass
@@ -38,7 +39,11 @@ class ChatRequest:
         """Convert to OpenAI API format."""
         data: dict[str, Any] = {
             "messages": [
-                {k: v for k, v in {"role": m.role, "content": m.content, "name": m.name}.items() if v is not None}
+                {
+                    k: v
+                    for k, v in {"role": m.role, "content": m.content, "name": m.name}.items()
+                    if v is not None
+                }
                 for m in self.messages
             ],
             "model": self.model,
@@ -129,7 +134,9 @@ class InferenceAdapter(abc.ABC):
     to the backend's API format and handles communication.
     """
 
-    def __init__(self, endpoint: str, model_id: str = "", timeout: float = 60.0, **kwargs: Any) -> None:
+    def __init__(
+        self, endpoint: str, model_id: str = "", timeout: float = 60.0, **kwargs: Any
+    ) -> None:
         self.endpoint = endpoint.rstrip("/")
         self.model_id = model_id
         self.timeout = timeout

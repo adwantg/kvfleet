@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from kvfleet.cache.fingerprints import PromptFingerprint, PromptFingerprinter
+from kvfleet.cache.fingerprints import PromptFingerprint
 from kvfleet.cache.kv_affinity import KVAffinityScorer
-from kvfleet.config.schema import CacheAffinityConfig, ModelConfig
+from kvfleet.config.schema import ModelConfig
 
 
 def compute_affinity_scores(

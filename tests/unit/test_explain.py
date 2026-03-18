@@ -1,6 +1,6 @@
 """Tests for route explanation."""
 
-from kvfleet.router.explain import RouteExplanation, CandidateScore, PolicyDecision
+from kvfleet.router.explain import CandidateScore, PolicyDecision, RouteExplanation
 
 
 class TestRouteExplanation:
@@ -10,7 +10,9 @@ class TestRouteExplanation:
             selected_model="model-a",
             candidates=[
                 CandidateScore(model_name="model-a", total_score=0.8, selected=True),
-                CandidateScore(model_name="model-b", total_score=0.5, rejected_reason="Lower score"),
+                CandidateScore(
+                    model_name="model-b", total_score=0.5, rejected_reason="Lower score"
+                ),
             ],
         )
         summary = explanation.summary()

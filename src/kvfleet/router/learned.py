@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import math
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from kvfleet.config.schema import ModelConfig
@@ -31,7 +31,7 @@ class ArmStats:
     pulls: int = 0
     total_reward: float = 0.0
     successes: int = 0  # For Thompson Sampling
-    failures: int = 0   # For Thompson Sampling
+    failures: int = 0  # For Thompson Sampling
     sum_squared_reward: float = 0.0
 
     @property
@@ -77,7 +77,7 @@ class EpsilonGreedyStrategy(RoutingStrategy):
         self._ensure_arms(candidates)
 
         # Decay epsilon
-        current_epsilon = max(self.min_epsilon, self.epsilon * (self.decay ** self._step))
+        current_epsilon = max(self.min_epsilon, self.epsilon * (self.decay**self._step))
 
         if random.random() < current_epsilon:
             # Explore: random selection
@@ -96,18 +96,20 @@ class EpsilonGreedyStrategy(RoutingStrategy):
         for model in candidates:
             arm = self._arms[model.name]
             is_selected = model.name == selected_name
-            scores.append(CandidateScore(
-                model_name=model.name,
-                endpoint=model.endpoint,
-                total_score=arm.mean_reward if arm.pulls > 0 else 0.5,
-                selected=is_selected,
-                signals={
-                    "pulls": arm.pulls,
-                    "mean_reward": arm.mean_reward,
-                    "epsilon": current_epsilon,
-                    "explore": random.random() < current_epsilon,
-                },
-            ))
+            scores.append(
+                CandidateScore(
+                    model_name=model.name,
+                    endpoint=model.endpoint,
+                    total_score=arm.mean_reward if arm.pulls > 0 else 0.5,
+                    selected=is_selected,
+                    signals={
+                        "pulls": arm.pulls,
+                        "mean_reward": arm.mean_reward,
+                        "epsilon": current_epsilon,
+                        "explore": random.random() < current_epsilon,
+                    },
+                )
+            )
 
         return scores
 
@@ -176,17 +178,19 @@ class UCB1Strategy(RoutingStrategy):
                 exploration = self.c * math.sqrt(math.log(self._total_pulls) / arm.pulls)
                 ucb = exploitation + exploration
 
-            scores.append(CandidateScore(
-                model_name=model.name,
-                endpoint=model.endpoint,
-                total_score=ucb,
-                signals={
-                    "pulls": arm.pulls,
-                    "mean_reward": arm.mean_reward,
-                    "ucb_value": ucb,
-                    "total_pulls": self._total_pulls,
-                },
-            ))
+            scores.append(
+                CandidateScore(
+                    model_name=model.name,
+                    endpoint=model.endpoint,
+                    total_score=ucb,
+                    signals={
+                        "pulls": arm.pulls,
+                        "mean_reward": arm.mean_reward,
+                        "ucb_value": ucb,
+                        "total_pulls": self._total_pulls,
+                    },
+                )
+            )
 
         scores.sort(key=lambda s: s.total_score, reverse=True)
         if scores:
@@ -241,19 +245,21 @@ class ThompsonSamplingStrategy(RoutingStrategy):
             beta = self.prior_beta + arm.failures
             sample = random.betavariate(alpha, beta)
 
-            scores.append(CandidateScore(
-                model_name=model.name,
-                endpoint=model.endpoint,
-                total_score=sample,
-                signals={
-                    "pulls": arm.pulls,
-                    "successes": arm.successes,
-                    "failures": arm.failures,
-                    "alpha": alpha,
-                    "beta": beta,
-                    "sampled_value": sample,
-                },
-            ))
+            scores.append(
+                CandidateScore(
+                    model_name=model.name,
+                    endpoint=model.endpoint,
+                    total_score=sample,
+                    signals={
+                        "pulls": arm.pulls,
+                        "successes": arm.successes,
+                        "failures": arm.failures,
+                        "alpha": alpha,
+                        "beta": beta,
+                        "sampled_value": sample,
+                    },
+                )
+            )
 
         scores.sort(key=lambda s: s.total_score, reverse=True)
         if scores:
@@ -328,17 +334,19 @@ class Exp3Strategy(RoutingStrategy):
         scores: list[CandidateScore] = []
         for model in candidates:
             arm = self._arms.get(model.name, ArmStats(name=model.name))
-            scores.append(CandidateScore(
-                model_name=model.name,
-                endpoint=model.endpoint,
-                total_score=probs.get(model.name, 0.0),
-                selected=model.name == selected_name,
-                signals={
-                    "probability": probs.get(model.name, 0.0),
-                    "weight": self._weights.get(model.name, 1.0),
-                    "pulls": arm.pulls,
-                },
-            ))
+            scores.append(
+                CandidateScore(
+                    model_name=model.name,
+                    endpoint=model.endpoint,
+                    total_score=probs.get(model.name, 0.0),
+                    selected=model.name == selected_name,
+                    signals={
+                        "probability": probs.get(model.name, 0.0),
+                        "weight": self._weights.get(model.name, 1.0),
+                        "pulls": arm.pulls,
+                    },
+                )
+            )
         return scores
 
     def update(self, model_name: str, reward: float) -> None:

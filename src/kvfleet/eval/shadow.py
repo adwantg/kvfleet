@@ -65,6 +65,7 @@ class ShadowTrafficManager:
         if not self.enabled or not self.shadow_models:
             return False
         import random
+
         return random.random() < self.sample_rate
 
     async def execute_shadow(
@@ -100,9 +101,7 @@ class ShadowTrafficManager:
         for model_name in self.shadow_models:
             if model_name == primary_model or model_name not in adapters:
                 continue
-            shadow_tasks.append(
-                self._shadow_request(model_name, adapters[model_name], request)
-            )
+            shadow_tasks.append(self._shadow_request(model_name, adapters[model_name], request))
 
         if shadow_tasks:
             results = await asyncio.gather(*shadow_tasks, return_exceptions=True)
@@ -117,13 +116,17 @@ class ShadowTrafficManager:
             self._results.append(comparison)
             logger.info(
                 "Shadow comparison: primary=%s, shadows=%d",
-                primary_model, len(comparison.shadow_results),
+                primary_model,
+                len(comparison.shadow_results),
             )
 
         return comparison
 
     async def _shadow_request(
-        self, model_name: str, adapter: InferenceAdapter, request: ChatRequest,
+        self,
+        model_name: str,
+        adapter: InferenceAdapter,
+        request: ChatRequest,
     ) -> ShadowResult:
         """Execute a single shadow request."""
         start = time.monotonic()

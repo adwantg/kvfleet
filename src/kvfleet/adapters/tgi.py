@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
@@ -29,7 +30,9 @@ class TGIAdapter(InferenceAdapter):
     reads TGI-specific health/metrics endpoints.
     """
 
-    def __init__(self, endpoint: str, model_id: str = "", timeout: float = 60.0, **kwargs: Any) -> None:
+    def __init__(
+        self, endpoint: str, model_id: str = "", timeout: float = 60.0, **kwargs: Any
+    ) -> None:
         super().__init__(endpoint, model_id, timeout, **kwargs)
         self._client: httpx.AsyncClient | None = None
 
@@ -75,7 +78,9 @@ class TGIAdapter(InferenceAdapter):
             usage=Usage(
                 prompt_tokens=details.get("prefill_tokens", 0) if details else 0,
                 completion_tokens=details.get("generated_tokens", 0) if details else 0,
-                total_tokens=(details.get("prefill_tokens", 0) + details.get("generated_tokens", 0)) if details else 0,
+                total_tokens=(details.get("prefill_tokens", 0) + details.get("generated_tokens", 0))
+                if details
+                else 0,
             ),
             latency_ms=latency,
             endpoint=self.endpoint,
@@ -100,6 +105,7 @@ class TGIAdapter(InferenceAdapter):
             async for line in resp.aiter_lines():
                 if line.startswith("data:"):
                     import json
+
                     try:
                         data = json.loads(line[5:])
                         token = data.get("token", {})
@@ -125,7 +131,9 @@ class TGIAdapter(InferenceAdapter):
                 last_checked=time.time(),
             )
         except httpx.RequestError as e:
-            return EndpointHealth(endpoint=self.endpoint, healthy=False, error=str(e), last_checked=time.time())
+            return EndpointHealth(
+                endpoint=self.endpoint, healthy=False, error=str(e), last_checked=time.time()
+            )
 
     async def get_metrics(self) -> dict[str, Any]:
         """Get TGI metrics from /metrics endpoint."""

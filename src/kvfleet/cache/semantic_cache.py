@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import threading
 import time
@@ -96,7 +95,7 @@ class SemanticCache:
     def stats(self) -> dict[str, Any]:
         """Return cache statistics."""
         with self._lock:
-            now = time.time()
+            time.time()
             active = sum(1 for e in self._cache.values() if not self._is_expired(e))
             return {
                 "total_entries": len(self._cache),

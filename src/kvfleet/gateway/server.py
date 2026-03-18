@@ -6,7 +6,6 @@ acting as a drop-in replacement for any OpenAI client.
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 import uuid
@@ -21,12 +20,15 @@ try:
     from starlette.requests import Request
     from starlette.responses import JSONResponse, StreamingResponse
     from starlette.routing import Route
+
     HAS_GATEWAY_DEPS = True
 except ImportError:
     HAS_GATEWAY_DEPS = False
 
 
-def create_gateway_app(router: Any, api_key: str = "", cors_origins: list[str] | None = None) -> Any:
+def create_gateway_app(
+    router: Any, api_key: str = "", cors_origins: list[str] | None = None
+) -> Any:
     """Create a Starlette app that exposes kvfleet as an OpenAI-compatible API.
 
     Args:
@@ -42,8 +44,7 @@ def create_gateway_app(router: Any, api_key: str = "", cors_origins: list[str] |
     """
     if not HAS_GATEWAY_DEPS:
         raise ImportError(
-            "Gateway requires 'starlette' and 'uvicorn'. "
-            "Install with: pip install kvfleet[gateway]"
+            "Gateway requires 'starlette' and 'uvicorn'. Install with: pip install kvfleet[gateway]"
         )
 
     from kvfleet.adapters.base import ChatMessage, ChatRequest
@@ -84,7 +85,9 @@ def create_gateway_app(router: Any, api_key: str = "", cors_origins: list[str] |
                 request_id=request_id,
             )
         except RuntimeError as e:
-            return JSONResponse({"error": {"message": str(e), "type": "routing_error"}}, status_code=503)
+            return JSONResponse(
+                {"error": {"message": str(e), "type": "routing_error"}}, status_code=503
+            )
 
         # Build OpenAI-format response
         result = {
@@ -162,7 +165,9 @@ def create_gateway_app(router: Any, api_key: str = "", cors_origins: list[str] |
 
     app = Starlette(routes=routes)
     origins = cors_origins or ["*"]
-    app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(
+        CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"]
+    )
 
     return app
 
@@ -177,6 +182,7 @@ def run_gateway(router: Any, host: str = "0.0.0.0", port: int = 8000, api_key: s
         api_key: Optional API key.
     """
     import uvicorn
+
     app = create_gateway_app(router, api_key=api_key)
     logger.info("Starting kvfleet gateway on %s:%d", host, port)
     uvicorn.run(app, host=host, port=port, log_level="info")

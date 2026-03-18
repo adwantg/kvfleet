@@ -1,21 +1,19 @@
 """Tests for kvfleet config schema and loader."""
 
-import os
-import tempfile
-from pathlib import Path
 
 import pytest
 import yaml
 
-from kvfleet.config.loader import load_config, save_config, _deep_merge, _coerce_value
+from kvfleet.config.loader import _coerce_value, _deep_merge, load_config, save_config
 from kvfleet.config.schema import (
-    FleetConfig, ModelConfig, ProviderType, RouteStrategy,
-    ScoringWeights, FallbackConfig, CacheAffinityConfig,
-    ShadowConfig, PolicyConfig, PolicyRule, BudgetConfig,
-    TenantConfig, SLOConfig, GatewayConfig, RouteRuleConfig,
+    FleetConfig,
     ModelCapabilities,
+    ModelConfig,
+    ProviderType,
+    RouteRuleConfig,
+    RouteStrategy,
+    ScoringWeights,
 )
-
 
 # ───────────────────────── Schema Tests ─────────────────────────
 
@@ -34,23 +32,27 @@ class TestModelConfig:
         assert m.get_model_id() == "llama"
 
     def test_get_model_id_explicit(self):
-        m = ModelConfig(name="llama", endpoint="http://localhost:8000", model_id="meta-llama/Llama-3")
+        m = ModelConfig(
+            name="llama", endpoint="http://localhost:8000", model_id="meta-llama/Llama-3"
+        )
         assert m.get_model_id() == "meta-llama/Llama-3"
 
     def test_all_endpoints(self):
         m = ModelConfig(
-            name="llama", endpoint="http://host1:8000",
+            name="llama",
+            endpoint="http://host1:8000",
             replicas=["http://host2:8000", "http://host3:8000"],
         )
         assert m.all_endpoints() == ["http://host1:8000", "http://host2:8000", "http://host3:8000"]
 
     def test_quality_bounds(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             ModelConfig(name="x", endpoint="http://x", quality_score=1.5)
 
     def test_capabilities(self):
         m = ModelConfig(
-            name="test", endpoint="http://x",
+            name="test",
+            endpoint="http://x",
             capabilities=ModelCapabilities(supports_tools=True, max_context_window=128000),
         )
         assert m.capabilities.supports_tools is True
@@ -66,10 +68,12 @@ class TestFleetConfig:
         assert cfg.cache_affinity.enabled is True
 
     def test_with_models(self):
-        cfg = FleetConfig(models=[
-            ModelConfig(name="m1", endpoint="http://a:8000"),
-            ModelConfig(name="m2", endpoint="http://b:8000"),
-        ])
+        cfg = FleetConfig(
+            models=[
+                ModelConfig(name="m1", endpoint="http://a:8000"),
+                ModelConfig(name="m2", endpoint="http://b:8000"),
+            ]
+        )
         assert len(cfg.models) == 2
 
     def test_scoring_weights_defaults(self):

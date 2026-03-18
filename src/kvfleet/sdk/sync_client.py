@@ -15,11 +15,10 @@ from kvfleet.sdk.async_client import AsyncFleetClient
 def _get_loop() -> asyncio.AbstractEventLoop:
     """Get or create an event loop."""
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
         # If there's a running loop, we can't use run_until_complete
         raise RuntimeError(
-            "Cannot use SyncFleetClient inside an async context. "
-            "Use AsyncFleetClient instead."
+            "Cannot use SyncFleetClient inside an async context. Use AsyncFleetClient instead."
         )
     except RuntimeError as e:
         if "no current event loop" in str(e).lower() or "no running event loop" in str(e).lower():
@@ -93,9 +92,7 @@ class SyncFleetClient:
 
     def simulate(self, prompt: str | None = None, **kwargs: Any) -> RouteExplanation:
         """Simulate routing (synchronous)."""
-        return self._loop.run_until_complete(
-            self._async_client.simulate(prompt=prompt, **kwargs)
-        )
+        return self._loop.run_until_complete(self._async_client.simulate(prompt=prompt, **kwargs))
 
     def health(self) -> dict[str, Any]:
         """Health check all endpoints (synchronous)."""

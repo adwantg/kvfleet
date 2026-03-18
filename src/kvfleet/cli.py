@@ -4,15 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-import sys
-from pathlib import Path
-from typing import Any, Optional
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.tree import Tree
 
 from kvfleet import __version__
 
@@ -39,19 +35,21 @@ def validate(
 
     try:
         fleet = load_config(config)
-        console.print(Panel.fit(
-            f"[green]✓ Valid configuration[/green]\n"
-            f"Fleet: {fleet.fleet_name}\n"
-            f"Models: {len(fleet.models)}\n"
-            f"Strategy: {fleet.strategy.value}",
-            title="Config Validation",
-        ))
+        console.print(
+            Panel.fit(
+                f"[green]✓ Valid configuration[/green]\n"
+                f"Fleet: {fleet.fleet_name}\n"
+                f"Models: {len(fleet.models)}\n"
+                f"Strategy: {fleet.strategy.value}",
+                title="Config Validation",
+            )
+        )
     except FileNotFoundError:
         console.print(f"[red]✗ Config file not found: {config}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     except Exception as e:
         console.print(f"[red]✗ Validation error: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command()
@@ -84,15 +82,23 @@ def fleet(
 
     console.print(table)
     console.print(f"\nStrategy: [bold]{fleet_config.strategy.value}[/bold]")
-    console.print(f"Cache affinity: {'[green]enabled[/green]' if fleet_config.cache_affinity.enabled else '[red]disabled[/red]'}")
-    console.print(f"Policy engine: {'[green]enabled[/green]' if fleet_config.policy.enabled else '[red]disabled[/red]'}")
-    console.print(f"Shadow traffic: {'[green]enabled[/green]' if fleet_config.shadow.enabled else '[red]disabled[/red]'}")
+    console.print(
+        f"Cache affinity: {'[green]enabled[/green]' if fleet_config.cache_affinity.enabled else '[red]disabled[/red]'}"
+    )
+    console.print(
+        f"Policy engine: {'[green]enabled[/green]' if fleet_config.policy.enabled else '[red]disabled[/red]'}"
+    )
+    console.print(
+        f"Shadow traffic: {'[green]enabled[/green]' if fleet_config.shadow.enabled else '[red]disabled[/red]'}"
+    )
 
 
 @app.command()
 def simulate(
     config: str = typer.Argument(..., help="Path to fleet YAML config file"),
-    prompt: str = typer.Option("Hello, what can you help me with?", "--prompt", "-p", help="Prompt to simulate"),
+    prompt: str = typer.Option(
+        "Hello, what can you help me with?", "--prompt", "-p", help="Prompt to simulate"
+    ),
     data_class: str = typer.Option("internal", "--data-class", "-d", help="Data classification"),
 ) -> None:
     """Simulate a routing decision without calling any backend."""
@@ -104,11 +110,13 @@ def simulate(
 
     explanation = asyncio.run(router.simulate(prompt=prompt, data_class=data_class))
 
-    console.print(Panel.fit(
-        explanation.summary(),
-        title="Route Simulation",
-        border_style="blue",
-    ))
+    console.print(
+        Panel.fit(
+            explanation.summary(),
+            title="Route Simulation",
+            border_style="blue",
+        )
+    )
 
 
 @app.command()
@@ -156,11 +164,13 @@ def explain(
     if output_json:
         console.print_json(json.dumps(explanation.to_dict(), indent=2))
     else:
-        console.print(Panel.fit(
-            explanation.summary(),
-            title="Route Explanation",
-            border_style="blue",
-        ))
+        console.print(
+            Panel.fit(
+                explanation.summary(),
+                title="Route Explanation",
+                border_style="blue",
+            )
+        )
 
 
 @app.command()
@@ -178,15 +188,17 @@ def serve(
     fleet_config = load_config(config)
     router = Router(fleet_config)
 
-    console.print(Panel.fit(
-        f"Starting kvfleet gateway\n"
-        f"Host: {host}:{port}\n"
-        f"Fleet: {fleet_config.fleet_name}\n"
-        f"Models: {len(fleet_config.models)}\n"
-        f"Strategy: {fleet_config.strategy.value}",
-        title="🚀 kvfleet Gateway",
-        border_style="green",
-    ))
+    console.print(
+        Panel.fit(
+            f"Starting kvfleet gateway\n"
+            f"Host: {host}:{port}\n"
+            f"Fleet: {fleet_config.fleet_name}\n"
+            f"Models: {len(fleet_config.models)}\n"
+            f"Strategy: {fleet_config.strategy.value}",
+            title="🚀 kvfleet Gateway",
+            border_style="green",
+        )
+    )
 
     run_gateway(router, host=host, port=port, api_key=api_key)
 
@@ -196,8 +208,8 @@ def init(
     output: str = typer.Option("fleet.yaml", "--output", "-o", help="Output config file path"),
 ) -> None:
     """Generate a sample fleet configuration file."""
-    from kvfleet.config.schema import FleetConfig, ModelConfig, ProviderType
     from kvfleet.config.loader import save_config
+    from kvfleet.config.schema import FleetConfig, ModelConfig, ProviderType
 
     sample = FleetConfig(
         fleet_name="my-fleet",
@@ -238,7 +250,9 @@ def init(
 
     save_config(sample, output)
     console.print(f"[green]✓ Sample config written to {output}[/green]")
-    console.print(f"Edit this file to match your fleet, then run: [cyan]kvfleet fleet {output}[/cyan]")
+    console.print(
+        f"Edit this file to match your fleet, then run: [cyan]kvfleet fleet {output}[/cyan]"
+    )
 
 
 def main() -> None:

@@ -94,12 +94,11 @@ def detect_modality(messages: list[ChatMessage] | list[dict[str, Any]]) -> Modal
                         has_video = True
                     elif part_type == "file" or part_type == "document":
                         has_documents = True
-        elif isinstance(content, str):
+        elif isinstance(content, str) and _has_image_markers(content):
             # Check for inline image references
-            if _has_image_markers(content):
-                has_images = True
-                image_count += content.count("data:image/")
-                image_count += len(re.findall(r"!\[.*?\]\(.*?\)", content))
+            has_images = True
+            image_count += content.count("data:image/")
+            image_count += len(re.findall(r"!\[.*?\]\(.*?\)", content))
 
     return ModalityDetection(
         has_images=has_images,
@@ -115,7 +114,7 @@ def _has_image_markers(text: str) -> bool:
     """Check if text contains image markers."""
     markers = [
         "data:image/",
-        "![",      # Markdown image
+        "![",  # Markdown image
         ".png",
         ".jpg",
         ".jpeg",
@@ -147,18 +146,15 @@ def filter_vision_capable(
     for model in models:
         supports_needed = True
 
-        if detection.has_images:
+        if detection.has_images and not model.capabilities.supports_vision and model.tags.get("vision") != "true":
             # Check capabilities.supports_vision or tags
-            if not model.capabilities.supports_vision and model.tags.get("vision") != "true":
-                supports_needed = False
+            supports_needed = False
 
-        if detection.has_audio:
-            if model.tags.get("audio") != "true":
-                supports_needed = False
+        if detection.has_audio and model.tags.get("audio") != "true":
+            supports_needed = False
 
-        if detection.has_video:
-            if model.tags.get("video") != "true":
-                supports_needed = False
+        if detection.has_video and model.tags.get("video") != "true":
+            supports_needed = False
 
         if supports_needed:
             capable.append(model)

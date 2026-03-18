@@ -2,12 +2,18 @@
 
 import pytest
 
-from kvfleet.config.schema import ModelConfig, ProviderType, ScoringWeights, RouteRuleConfig
-from kvfleet.router.scoring import ScoringEngine, ScoringContext
+from kvfleet.config.schema import ModelConfig, RouteRuleConfig
+from kvfleet.router.scoring import ScoringContext, ScoringEngine
 from kvfleet.router.strategies import (
-    StaticStrategy, WeightedStrategy, RulesStrategy,
-    CostFirstStrategy, LatencyFirstStrategy, QualityFirstStrategy,
-    CheapCascadeStrategy, HybridScoreStrategy, get_strategy,
+    CheapCascadeStrategy,
+    CostFirstStrategy,
+    HybridScoreStrategy,
+    LatencyFirstStrategy,
+    QualityFirstStrategy,
+    RulesStrategy,
+    StaticStrategy,
+    WeightedStrategy,
+    get_strategy,
 )
 
 
@@ -15,16 +21,25 @@ from kvfleet.router.strategies import (
 def candidates():
     return [
         ModelConfig(
-            name="cheap", endpoint="http://a:8000",
-            quality_score=0.5, cost_per_1k_input_tokens=0.001, latency_p50_ms=200,
+            name="cheap",
+            endpoint="http://a:8000",
+            quality_score=0.5,
+            cost_per_1k_input_tokens=0.001,
+            latency_p50_ms=200,
         ),
         ModelConfig(
-            name="balanced", endpoint="http://b:8000",
-            quality_score=0.7, cost_per_1k_input_tokens=0.01, latency_p50_ms=500,
+            name="balanced",
+            endpoint="http://b:8000",
+            quality_score=0.7,
+            cost_per_1k_input_tokens=0.01,
+            latency_p50_ms=500,
         ),
         ModelConfig(
-            name="premium", endpoint="http://c:8000",
-            quality_score=0.95, cost_per_1k_input_tokens=0.05, latency_p50_ms=400,
+            name="premium",
+            endpoint="http://c:8000",
+            quality_score=0.95,
+            cost_per_1k_input_tokens=0.05,
+            latency_p50_ms=400,
         ),
     ]
 
@@ -97,12 +112,14 @@ class TestWeightedStrategy:
 
 class TestRulesStrategy:
     def test_rule_match(self, candidates):
-        rules = [RouteRuleConfig(
-            name="code-rule",
-            condition={"tags.domain": "coding"},
-            target_model="premium",
-            priority=1,
-        )]
+        rules = [
+            RouteRuleConfig(
+                name="code-rule",
+                condition={"tags.domain": "coding"},
+                target_model="premium",
+                priority=1,
+            )
+        ]
         strategy = RulesStrategy(rules=rules)
         ctx = ScoringContext(tags={"domain": "coding"})
         scores = strategy.select(candidates, ctx)
@@ -110,11 +127,13 @@ class TestRulesStrategy:
         assert selected.model_name == "premium"
 
     def test_no_rule_match(self, candidates):
-        rules = [RouteRuleConfig(
-            name="code-rule",
-            condition={"tags.domain": "coding"},
-            target_model="premium",
-        )]
+        rules = [
+            RouteRuleConfig(
+                name="code-rule",
+                condition={"tags.domain": "coding"},
+                target_model="premium",
+            )
+        ]
         strategy = RulesStrategy(rules=rules)
         ctx = ScoringContext(tags={"domain": "general"})
         scores = strategy.select(candidates, ctx)
@@ -155,7 +174,16 @@ class TestCheapCascadeStrategy:
 
 class TestGetStrategy:
     def test_valid_strategies(self):
-        for name in ["static", "weighted", "rules", "cost_first", "latency_first", "quality_first", "cheap_cascade", "hybrid_score"]:
+        for name in [
+            "static",
+            "weighted",
+            "rules",
+            "cost_first",
+            "latency_first",
+            "quality_first",
+            "cheap_cascade",
+            "hybrid_score",
+        ]:
             strategy = get_strategy(name)
             assert strategy is not None
 

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
-import time
 import threading
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -66,7 +66,7 @@ class ModelCostInfo:
     input_cost_per_1k: float = 0.0
     output_cost_per_1k: float = 0.0
     image_cost_per_image: float = 0.0
-    cached_input_cost_per_1k: float = 0.0   # Prompt caching discount
+    cached_input_cost_per_1k: float = 0.0  # Prompt caching discount
     source: str = "unknown"
     last_updated: float = field(default_factory=time.time)
 
@@ -177,6 +177,7 @@ class CostSyncManager:
         """
         try:
             import litellm
+
             cost_map = getattr(litellm, "model_cost", {})
             count = 0
             with self._lock:

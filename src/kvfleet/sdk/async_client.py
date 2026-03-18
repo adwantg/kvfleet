@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from kvfleet.adapters.base import ChatMessage, ChatResponse
+from kvfleet.adapters.base import ChatResponse
 from kvfleet.config.loader import load_config
 from kvfleet.config.schema import FleetConfig
 from kvfleet.router.engine import Router

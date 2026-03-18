@@ -8,13 +8,12 @@ Optionally integrates with sentence-transformers for embedding-based routing.
 from __future__ import annotations
 
 import logging
-import math
 import re
 from typing import Any
 
 from kvfleet.config.schema import ModelConfig
 from kvfleet.router.explain import CandidateScore
-from kvfleet.router.scoring import ScoringContext, ScoringEngine
+from kvfleet.router.scoring import ScoringContext
 from kvfleet.router.strategies import RoutingStrategy
 
 logger = logging.getLogger(__name__)
@@ -24,44 +23,151 @@ logger = logging.getLogger(__name__)
 # Keyword-based domain detection (works without any ML dependencies)
 DOMAIN_KEYWORDS: dict[str, list[str]] = {
     "coding": [
-        "code", "function", "class", "def ", "import ", "variable", "debug",
-        "error", "compile", "syntax", "algorithm", "api", "database", "sql",
-        "python", "javascript", "rust", "golang", "java", "typescript",
-        "git", "docker", "kubernetes", "ci/cd", "deploy", "refactor",
-        "unittest", "pytest", "npm", "pip", "cargo", "webpack",
+        "code",
+        "function",
+        "class",
+        "def ",
+        "import ",
+        "variable",
+        "debug",
+        "error",
+        "compile",
+        "syntax",
+        "algorithm",
+        "api",
+        "database",
+        "sql",
+        "python",
+        "javascript",
+        "rust",
+        "golang",
+        "java",
+        "typescript",
+        "git",
+        "docker",
+        "kubernetes",
+        "ci/cd",
+        "deploy",
+        "refactor",
+        "unittest",
+        "pytest",
+        "npm",
+        "pip",
+        "cargo",
+        "webpack",
     ],
     "math": [
-        "equation", "integral", "derivative", "matrix", "vector", "theorem",
-        "proof", "calculus", "algebra", "geometry", "statistics", "probability",
-        "eigenvalue", "polynomial", "logarithm", "trigonometry", "factorial",
+        "equation",
+        "integral",
+        "derivative",
+        "matrix",
+        "vector",
+        "theorem",
+        "proof",
+        "calculus",
+        "algebra",
+        "geometry",
+        "statistics",
+        "probability",
+        "eigenvalue",
+        "polynomial",
+        "logarithm",
+        "trigonometry",
+        "factorial",
     ],
     "creative": [
-        "poem", "story", "novel", "write a", "creative", "fiction", "haiku",
-        "song", "lyrics", "dialogue", "character", "plot", "narrative",
-        "metaphor", "imagery", "prose", "screenplay",
+        "poem",
+        "story",
+        "novel",
+        "write a",
+        "creative",
+        "fiction",
+        "haiku",
+        "song",
+        "lyrics",
+        "dialogue",
+        "character",
+        "plot",
+        "narrative",
+        "metaphor",
+        "imagery",
+        "prose",
+        "screenplay",
     ],
     "medical": [
-        "diagnosis", "symptom", "treatment", "disease", "patient", "clinical",
-        "medical", "health", "doctor", "prescription", "surgery", "therapy",
-        "dosage", "pharmaceutical", "pathology", "radiology",
+        "diagnosis",
+        "symptom",
+        "treatment",
+        "disease",
+        "patient",
+        "clinical",
+        "medical",
+        "health",
+        "doctor",
+        "prescription",
+        "surgery",
+        "therapy",
+        "dosage",
+        "pharmaceutical",
+        "pathology",
+        "radiology",
     ],
     "legal": [
-        "legal", "law", "court", "contract", "statute", "regulation",
-        "compliance", "liability", "attorney", "jurisdiction", "precedent",
-        "litigation", "arbitration", "intellectual property", "patent",
+        "legal",
+        "law",
+        "court",
+        "contract",
+        "statute",
+        "regulation",
+        "compliance",
+        "liability",
+        "attorney",
+        "jurisdiction",
+        "precedent",
+        "litigation",
+        "arbitration",
+        "intellectual property",
+        "patent",
     ],
     "scientific": [
-        "research", "experiment", "hypothesis", "data analysis", "methodology",
-        "peer review", "citation", "journal", "abstract", "conclusion",
-        "laboratory", "specimen", "observation", "scientific method",
+        "research",
+        "experiment",
+        "hypothesis",
+        "data analysis",
+        "methodology",
+        "peer review",
+        "citation",
+        "journal",
+        "abstract",
+        "conclusion",
+        "laboratory",
+        "specimen",
+        "observation",
+        "scientific method",
     ],
     "translation": [
-        "translate", "translation", "en español", "en français", "auf deutsch",
-        "in japanese", "in chinese", "in korean", "localize", "multilingual",
+        "translate",
+        "translation",
+        "en español",
+        "en français",
+        "auf deutsch",
+        "in japanese",
+        "in chinese",
+        "in korean",
+        "localize",
+        "multilingual",
     ],
     "summarization": [
-        "summarize", "summary", "tldr", "key points", "bullet points",
-        "condense", "brief", "overview", "highlights", "recap",
+        "summarize",
+        "summary",
+        "tldr",
+        "key points",
+        "bullet points",
+        "condense",
+        "brief",
+        "overview",
+        "highlights",
+        "recap",
     ],
     "general": [],  # Fallback
 }
@@ -161,6 +267,7 @@ class SemanticStrategy(RoutingStrategy):
         """Try to initialize sentence-transformers."""
         try:
             from sentence_transformers import SentenceTransformer
+
             self._embedder = SentenceTransformer("all-MiniLM-L6-v2")
             # Pre-compute description embeddings
             for model_name, desc in self.model_descriptions.items():
@@ -185,7 +292,9 @@ class SemanticStrategy(RoutingStrategy):
             return self._select_by_keywords(candidates, ctx)
 
     def _select_by_keywords(
-        self, candidates: list[ModelConfig], ctx: ScoringContext,
+        self,
+        candidates: list[ModelConfig],
+        ctx: ScoringContext,
     ) -> list[CandidateScore]:
         """Route using keyword-based domain classification."""
         prompt_text = ctx.metadata.get("prompt_text", "") if ctx.metadata else ""
@@ -195,7 +304,7 @@ class SemanticStrategy(RoutingStrategy):
         scores: list[CandidateScore] = []
         for model in candidates:
             model_domain = model.tags.get("domain", "general")
-            model_tier = model.tags.get("tier", "")
+            model.tags.get("tier", "")
 
             # Domain match score
             domain_score = 1.0 if model_domain == domain else 0.3
@@ -204,18 +313,20 @@ class SemanticStrategy(RoutingStrategy):
             quality_match = 1.0 - abs(model.quality_score - complexity)
 
             total = domain_score * 0.6 + quality_match * 0.4
-            scores.append(CandidateScore(
-                model_name=model.name,
-                endpoint=model.endpoint,
-                total_score=total,
-                quality_score=model.quality_score,
-                signals={
-                    "detected_domain": domain,
-                    "domain_confidence": confidence,
-                    "complexity": complexity,
-                    "domain_match": domain_score,
-                },
-            ))
+            scores.append(
+                CandidateScore(
+                    model_name=model.name,
+                    endpoint=model.endpoint,
+                    total_score=total,
+                    quality_score=model.quality_score,
+                    signals={
+                        "detected_domain": domain,
+                        "domain_confidence": confidence,
+                        "complexity": complexity,
+                        "domain_match": domain_score,
+                    },
+                )
+            )
 
         scores.sort(key=lambda s: s.total_score, reverse=True)
         if scores:
@@ -223,7 +334,9 @@ class SemanticStrategy(RoutingStrategy):
         return scores
 
     def _select_by_embedding(
-        self, candidates: list[ModelConfig], prompt_text: str,
+        self,
+        candidates: list[ModelConfig],
+        prompt_text: str,
     ) -> list[CandidateScore]:
         """Route using embedding cosine similarity."""
         import numpy as np
@@ -234,18 +347,21 @@ class SemanticStrategy(RoutingStrategy):
         for model in candidates:
             desc_emb = self._description_embeddings.get(model.name)
             if desc_emb is not None:
-                similarity = float(np.dot(prompt_emb, desc_emb) / (
-                    np.linalg.norm(prompt_emb) * np.linalg.norm(desc_emb) + 1e-8
-                ))
+                similarity = float(
+                    np.dot(prompt_emb, desc_emb)
+                    / (np.linalg.norm(prompt_emb) * np.linalg.norm(desc_emb) + 1e-8)
+                )
             else:
                 similarity = 0.5
 
-            scores.append(CandidateScore(
-                model_name=model.name,
-                endpoint=model.endpoint,
-                total_score=similarity,
-                signals={"embedding_similarity": similarity},
-            ))
+            scores.append(
+                CandidateScore(
+                    model_name=model.name,
+                    endpoint=model.endpoint,
+                    total_score=similarity,
+                    signals={"embedding_similarity": similarity},
+                )
+            )
 
         scores.sort(key=lambda s: s.total_score, reverse=True)
         if scores:
@@ -280,19 +396,25 @@ class DomainStrategy(RoutingStrategy):
 
         scores: list[CandidateScore] = []
         for model in candidates:
-            if preferred_model and model.name == preferred_model and preferred_model in candidate_names:
+            if (
+                preferred_model
+                and model.name == preferred_model
+                and preferred_model in candidate_names
+            ):
                 score = 1.0
             elif model.tags.get("domain") == domain:
                 score = 0.8
             else:
                 score = model.quality_score * 0.5
 
-            scores.append(CandidateScore(
-                model_name=model.name,
-                endpoint=model.endpoint,
-                total_score=score,
-                signals={"detected_domain": domain, "confidence": confidence},
-            ))
+            scores.append(
+                CandidateScore(
+                    model_name=model.name,
+                    endpoint=model.endpoint,
+                    total_score=score,
+                    signals={"detected_domain": domain, "confidence": confidence},
+                )
+            )
 
         scores.sort(key=lambda s: s.total_score, reverse=True)
         if scores:

@@ -15,11 +15,11 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
+import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +86,9 @@ class DashboardState:
             # Model stats
             if selected_model not in self.model_stats:
                 self.model_stats[selected_model] = {
-                    "requests": 0, "errors": 0, "total_latency_ms": 0,
+                    "requests": 0,
+                    "errors": 0,
+                    "total_latency_ms": 0,
                 }
             self.model_stats[selected_model]["requests"] += 1
             self.model_stats[selected_model]["total_latency_ms"] += latency_ms
@@ -107,16 +109,19 @@ class DashboardState:
             }
             self.route_history.append(entry)
             if len(self.route_history) > self.max_history:
-                self.route_history = self.route_history[-self.max_history:]
+                self.route_history = self.route_history[-self.max_history :]
 
     def record_policy_block(self, rule_name: str) -> None:
         with self._lock:
             self.total_policy_blocks += 1
 
-    def update_health(self, model_name: str, endpoint: str, healthy: bool, latency_ms: float = 0) -> None:
+    def update_health(
+        self, model_name: str, endpoint: str, healthy: bool, latency_ms: float = 0
+    ) -> None:
         with self._lock:
             self.health_states[f"{model_name}:{endpoint}"] = {
-                "healthy": healthy, "latency_ms": latency_ms,
+                "healthy": healthy,
+                "latency_ms": latency_ms,
                 "last_check": time.time(),
             }
 

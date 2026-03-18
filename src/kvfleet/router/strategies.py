@@ -45,17 +45,21 @@ class StaticStrategy(RoutingStrategy):
     def __init__(self, default_model: str = "") -> None:
         self.default_model = default_model
 
-    def select(self, candidates: list[ModelConfig], context: ScoringContext | None = None, **kwargs: Any) -> list[CandidateScore]:
+    def select(
+        self, candidates: list[ModelConfig], context: ScoringContext | None = None, **kwargs: Any
+    ) -> list[CandidateScore]:
         scores = []
         for model in candidates:
             selected = model.name == self.default_model
-            scores.append(CandidateScore(
-                model_name=model.name,
-                endpoint=model.endpoint,
-                total_score=1.0 if selected else 0.0,
-                selected=selected,
-                rejected_reason="" if selected else "Not the configured static target",
-            ))
+            scores.append(
+                CandidateScore(
+                    model_name=model.name,
+                    endpoint=model.endpoint,
+                    total_score=1.0 if selected else 0.0,
+                    selected=selected,
+                    rejected_reason="" if selected else "Not the configured static target",
+                )
+            )
         if not any(s.selected for s in scores) and scores:
             scores[0].selected = True
             scores[0].total_score = 1.0
@@ -68,7 +72,9 @@ class WeightedStrategy(RoutingStrategy):
 
     name = "weighted"
 
-    def select(self, candidates: list[ModelConfig], context: ScoringContext | None = None, **kwargs: Any) -> list[CandidateScore]:
+    def select(
+        self, candidates: list[ModelConfig], context: ScoringContext | None = None, **kwargs: Any
+    ) -> list[CandidateScore]:
         if not candidates:
             return []
         total_weight = sum(m.weight for m in candidates)
@@ -88,13 +94,15 @@ class WeightedStrategy(RoutingStrategy):
 
         for model in candidates:
             selected = model.name == picked_name
-            scores.append(CandidateScore(
-                model_name=model.name,
-                endpoint=model.endpoint,
-                total_score=model.weight / total_weight if total_weight > 0 else 0.0,
-                selected=selected,
-                signals={"weight": model.weight},
-            ))
+            scores.append(
+                CandidateScore(
+                    model_name=model.name,
+                    endpoint=model.endpoint,
+                    total_score=model.weight / total_weight if total_weight > 0 else 0.0,
+                    selected=selected,
+                    signals={"weight": model.weight},
+                )
+            )
         return scores
 
 
@@ -106,27 +114,32 @@ class RulesStrategy(RoutingStrategy):
     def __init__(self, rules: list[RouteRuleConfig] | None = None) -> None:
         self.rules = sorted(rules or [], key=lambda r: r.priority)
 
-    def select(self, candidates: list[ModelConfig], context: ScoringContext | None = None, **kwargs: Any) -> list[CandidateScore]:
+    def select(
+        self, candidates: list[ModelConfig], context: ScoringContext | None = None, **kwargs: Any
+    ) -> list[CandidateScore]:
         ctx = context or ScoringContext()
         request_tags = ctx.tags or {}
         candidate_map = {m.name: m for m in candidates}
 
         # Try rules in priority order
         for rule in self.rules:
-            if self._matches(rule, request_tags, ctx):
-                if rule.target_model in candidate_map:
-                    scores = []
-                    for model in candidates:
-                        selected = model.name == rule.target_model
-                        scores.append(CandidateScore(
+            if self._matches(rule, request_tags, ctx) and rule.target_model in candidate_map:
+                scores = []
+                for model in candidates:
+                    selected = model.name == rule.target_model
+                    scores.append(
+                        CandidateScore(
                             model_name=model.name,
                             endpoint=model.endpoint,
                             total_score=1.0 if selected else 0.0,
                             selected=selected,
-                            rejected_reason="" if selected else f"Rule '{rule.name}' selected {rule.target_model}",
+                            rejected_reason=""
+                            if selected
+                            else f"Rule '{rule.name}' selected {rule.target_model}",
                             signals={"matched_rule": rule.name},
-                        ))
-                    return scores
+                        )
+                    )
+                return scores
 
         # No rule matched — score by quality
         engine = ScoringEngine()
@@ -155,7 +168,9 @@ class CostFirstStrategy(RoutingStrategy):
 
     name = "cost_first"
 
-    def select(self, candidates: list[ModelConfig], context: ScoringContext | None = None, **kwargs: Any) -> list[CandidateScore]:
+    def select(
+        self, candidates: list[ModelConfig], context: ScoringContext | None = None, **kwargs: Any
+    ) -> list[CandidateScore]:
         engine = ScoringEngine()
         engine.weights.cost = 0.9
         engine.weights.latency = 0.05
@@ -169,7 +184,9 @@ class LatencyFirstStrategy(RoutingStrategy):
 
     name = "latency_first"
 
-    def select(self, candidates: list[ModelConfig], context: ScoringContext | None = None, **kwargs: Any) -> list[CandidateScore]:
+    def select(
+        self, candidates: list[ModelConfig], context: ScoringContext | None = None, **kwargs: Any
+    ) -> list[CandidateScore]:
         engine = ScoringEngine()
         engine.weights.cost = 0.05
         engine.weights.latency = 0.9
@@ -183,7 +200,9 @@ class QualityFirstStrategy(RoutingStrategy):
 
     name = "quality_first"
 
-    def select(self, candidates: list[ModelConfig], context: ScoringContext | None = None, **kwargs: Any) -> list[CandidateScore]:
+    def select(
+        self, candidates: list[ModelConfig], context: ScoringContext | None = None, **kwargs: Any
+    ) -> list[CandidateScore]:
         engine = ScoringEngine()
         engine.weights.cost = 0.05
         engine.weights.latency = 0.05
@@ -197,20 +216,32 @@ class CheapCascadeStrategy(RoutingStrategy):
 
     name = "cheap_cascade"
 
-    def select(self, candidates: list[ModelConfig], context: ScoringContext | None = None, **kwargs: Any) -> list[CandidateScore]:
+    def select(
+        self, candidates: list[ModelConfig], context: ScoringContext | None = None, **kwargs: Any
+    ) -> list[CandidateScore]:
         """Order by cost (cheapest first), quality as tiebreaker."""
-        sorted_models = sorted(candidates, key=lambda m: (m.cost_per_1k_input_tokens, -m.quality_score))
+        sorted_models = sorted(
+            candidates, key=lambda m: (m.cost_per_1k_input_tokens, -m.quality_score)
+        )
         scores = []
         for i, model in enumerate(sorted_models):
-            scores.append(CandidateScore(
-                model_name=model.name,
-                endpoint=model.endpoint,
-                total_score=1.0 - (i * 0.1),
-                cost_score=1.0 - (model.cost_per_1k_input_tokens / max(m.cost_per_1k_input_tokens for m in candidates) if max(m.cost_per_1k_input_tokens for m in candidates) > 0 else 1.0),
-                quality_score=model.quality_score,
-                selected=(i == 0),
-                signals={"cascade_order": i},
-            ))
+            scores.append(
+                CandidateScore(
+                    model_name=model.name,
+                    endpoint=model.endpoint,
+                    total_score=1.0 - (i * 0.1),
+                    cost_score=1.0
+                    - (
+                        model.cost_per_1k_input_tokens
+                        / max(m.cost_per_1k_input_tokens for m in candidates)
+                        if max(m.cost_per_1k_input_tokens for m in candidates) > 0
+                        else 1.0
+                    ),
+                    quality_score=model.quality_score,
+                    selected=(i == 0),
+                    signals={"cascade_order": i},
+                )
+            )
         return scores
 
 
@@ -222,7 +253,9 @@ class HybridScoreStrategy(RoutingStrategy):
     def __init__(self, scoring_engine: ScoringEngine | None = None) -> None:
         self.scoring_engine = scoring_engine or ScoringEngine()
 
-    def select(self, candidates: list[ModelConfig], context: ScoringContext | None = None, **kwargs: Any) -> list[CandidateScore]:
+    def select(
+        self, candidates: list[ModelConfig], context: ScoringContext | None = None, **kwargs: Any
+    ) -> list[CandidateScore]:
         return self.scoring_engine.score_candidates(candidates, context)
 
 
@@ -242,11 +275,13 @@ def get_strategy(strategy_name: str, **kwargs: Any) -> RoutingStrategy:
     Returns:
         Configured RoutingStrategy instance.
     """
-    from kvfleet.router.semantic import SemanticStrategy, DomainStrategy
     from kvfleet.router.learned import (
-        EpsilonGreedyStrategy, UCB1Strategy,
-        ThompsonSamplingStrategy, Exp3Strategy,
+        EpsilonGreedyStrategy,
+        Exp3Strategy,
+        ThompsonSamplingStrategy,
+        UCB1Strategy,
     )
+    from kvfleet.router.semantic import DomainStrategy, SemanticStrategy
 
     strategies: dict[str, type[RoutingStrategy]] = {
         "static": StaticStrategy,

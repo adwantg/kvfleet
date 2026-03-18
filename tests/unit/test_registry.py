@@ -10,16 +10,27 @@ from kvfleet.registry.models import ModelRegistry
 def sample_models():
     return [
         ModelConfig(
-            name="llama-8b", endpoint="http://a:8000", provider=ProviderType.VLLM,
-            quality_score=0.7, cost_per_1k_input_tokens=0.0, tags={"domain": "general"},
+            name="llama-8b",
+            endpoint="http://a:8000",
+            provider=ProviderType.VLLM,
+            quality_score=0.7,
+            cost_per_1k_input_tokens=0.0,
+            tags={"domain": "general"},
         ),
         ModelConfig(
-            name="llama-70b", endpoint="http://b:8000", provider=ProviderType.VLLM,
-            quality_score=0.9, cost_per_1k_input_tokens=0.0, tags={"domain": "coding"},
+            name="llama-70b",
+            endpoint="http://b:8000",
+            provider=ProviderType.VLLM,
+            quality_score=0.9,
+            cost_per_1k_input_tokens=0.0,
+            tags={"domain": "coding"},
         ),
         ModelConfig(
-            name="gpt-4o", endpoint="https://api.openai.com", provider=ProviderType.OPENAI_COMPAT,
-            quality_score=0.95, cost_per_1k_input_tokens=0.005,
+            name="gpt-4o",
+            endpoint="https://api.openai.com",
+            provider=ProviderType.OPENAI_COMPAT,
+            quality_score=0.95,
+            cost_per_1k_input_tokens=0.005,
             allowed_data_classes=["public"],
         ),
     ]

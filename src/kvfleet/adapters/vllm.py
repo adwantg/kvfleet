@@ -55,7 +55,9 @@ class VLLMAdapter(OpenAICompatAdapter):
                 health.active_requests = int(metrics.get("vllm:num_requests_running", 0))
                 health.gpu_memory_used_pct = metrics.get("vllm:gpu_cache_usage_perc", 0.0) * 100
                 health.kv_cache_usage_pct = metrics.get("vllm:gpu_cache_usage_perc", 0.0) * 100
-                health.tokens_per_second = metrics.get("vllm:avg_generation_throughput_toks_per_s", 0.0)
+                health.tokens_per_second = metrics.get(
+                    "vllm:avg_generation_throughput_toks_per_s", 0.0
+                )
         except httpx.RequestError:
             pass  # Metrics are optional
 

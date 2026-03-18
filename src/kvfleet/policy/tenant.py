@@ -136,10 +136,7 @@ class TenantManager:
             return False
 
         # Check monthly budget
-        if self.budget_tracker.is_over_budget(tenant_id, tenant.budget):
-            return False
-
-        return True
+        return not self.budget_tracker.is_over_budget(tenant_id, tenant.budget)
 
     def record_request(self, tenant_id: str, cost_usd: float) -> None:
         """Record a request cost for budget tracking."""

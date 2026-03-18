@@ -2,34 +2,44 @@
 
 import pytest
 
-from kvfleet.config.schema import ModelConfig, ProviderType
-from kvfleet.router.scoring import ScoringContext
-from kvfleet.router.strategies import get_strategy
-from kvfleet.router.semantic import (
-    classify_domain, estimate_complexity,
-    SemanticStrategy, DomainStrategy,
-)
+from kvfleet.config.schema import ModelConfig
 from kvfleet.router.learned import (
-    EpsilonGreedyStrategy, UCB1Strategy,
-    ThompsonSamplingStrategy, Exp3Strategy,
+    EpsilonGreedyStrategy,
+    Exp3Strategy,
+    ThompsonSamplingStrategy,
+    UCB1Strategy,
     compute_reward,
 )
+from kvfleet.router.scoring import ScoringContext
+from kvfleet.router.semantic import (
+    DomainStrategy,
+    SemanticStrategy,
+    classify_domain,
+    estimate_complexity,
+)
+from kvfleet.router.strategies import get_strategy
 
 
 @pytest.fixture
 def candidates():
     return [
         ModelConfig(
-            name="code-model", endpoint="http://a:8000",
-            quality_score=0.9, tags={"domain": "coding"},
+            name="code-model",
+            endpoint="http://a:8000",
+            quality_score=0.9,
+            tags={"domain": "coding"},
         ),
         ModelConfig(
-            name="general", endpoint="http://b:8000",
-            quality_score=0.7, tags={"domain": "general"},
+            name="general",
+            endpoint="http://b:8000",
+            quality_score=0.7,
+            tags={"domain": "general"},
         ),
         ModelConfig(
-            name="creative-model", endpoint="http://c:8000",
-            quality_score=0.8, tags={"domain": "creative"},
+            name="creative-model",
+            endpoint="http://c:8000",
+            quality_score=0.8,
+            tags={"domain": "creative"},
         ),
     ]
 
@@ -44,23 +54,23 @@ class TestClassifyDomain:
         assert conf > 0.5
 
     def test_math(self):
-        domain, conf = classify_domain("Solve this integral of x^2 from 0 to 1")
+        domain, _conf = classify_domain("Solve this integral of x^2 from 0 to 1")
         assert domain == "math"
 
     def test_creative(self):
-        domain, conf = classify_domain("Write a poem about the ocean")
+        domain, _conf = classify_domain("Write a poem about the ocean")
         assert domain == "creative"
 
     def test_medical(self):
-        domain, conf = classify_domain("What are the symptoms of diabetes treatment?")
+        domain, _conf = classify_domain("What are the symptoms of diabetes treatment?")
         assert domain == "medical"
 
     def test_general_fallback(self):
-        domain, conf = classify_domain("What time is it?")
+        domain, _conf = classify_domain("What time is it?")
         assert domain == "general"
 
     def test_empty_text(self):
-        domain, conf = classify_domain("")
+        domain, _conf = classify_domain("")
         assert domain == "general"
 
 
@@ -244,9 +254,20 @@ class TestStrategyFactory:
 
     def test_all_14_strategies(self):
         names = [
-            "static", "weighted", "rules", "cost_first", "latency_first",
-            "quality_first", "cheap_cascade", "hybrid_score",
-            "semantic", "domain", "bandit", "learned", "thompson", "exp3",
+            "static",
+            "weighted",
+            "rules",
+            "cost_first",
+            "latency_first",
+            "quality_first",
+            "cheap_cascade",
+            "hybrid_score",
+            "semantic",
+            "domain",
+            "bandit",
+            "learned",
+            "thompson",
+            "exp3",
         ]
         for name in names:
             strategy = get_strategy(name)

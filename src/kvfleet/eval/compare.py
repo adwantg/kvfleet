@@ -65,7 +65,10 @@ class ModelComparator:
         return result
 
     async def _run(
-        self, name: str, adapter: InferenceAdapter, request: ChatRequest,
+        self,
+        name: str,
+        adapter: InferenceAdapter,
+        request: ChatRequest,
     ) -> tuple[ChatResponse, float]:
         start = time.monotonic()
         response = await adapter.chat(request)
@@ -111,12 +114,14 @@ class ReplayEngine:
 
     def record(self, request: ChatRequest, model: str, response: ChatResponse) -> None:
         """Record a request for future replay."""
-        self._records.append(ReplayRecord(
-            request=request,
-            original_model=model,
-            original_response=response.content,
-            original_latency_ms=response.latency_ms,
-        ))
+        self._records.append(
+            ReplayRecord(
+                request=request,
+                original_model=model,
+                original_response=response.content,
+                original_latency_ms=response.latency_ms,
+            )
+        )
 
     async def replay(
         self,
@@ -139,7 +144,9 @@ class ReplayEngine:
 
         for record in records:
             comparison = await self._comparator.compare(
-                record.request, adapters, model_names,
+                record.request,
+                adapters,
+                model_names,
             )
             result = ReplayResult(
                 record=record,
@@ -208,7 +215,6 @@ class RouteCalibrator:
 
         # Count which models performed best on each dimension
         latency_wins: dict[str, int] = {}
-        quality_wins: dict[str, int] = {}
 
         for result in replay_results:
             if result.latencies:

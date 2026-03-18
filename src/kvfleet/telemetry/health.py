@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from typing import Any
 
-from kvfleet.adapters.base import EndpointHealth, InferenceAdapter
+from kvfleet.adapters.base import EndpointHealth
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +46,9 @@ class HealthManager:
             self._failure_counts[ep] = self._failure_counts.get(ep, 0) + 1
             if self._failure_counts[ep] >= self.failure_threshold:
                 self._circuit_open_until[ep] = time.time() + self.recovery_timeout
-                logger.warning("Circuit breaker OPEN for %s (failures: %d)", ep, self._failure_counts[ep])
+                logger.warning(
+                    "Circuit breaker OPEN for %s (failures: %d)", ep, self._failure_counts[ep]
+                )
         self._health[ep] = health
 
     def is_healthy(self, endpoint: str) -> bool:

@@ -23,7 +23,9 @@ PII_PATTERNS: dict[str, re.Pattern[str]] = {
     "ssn": re.compile(r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b"),
     "credit_card": re.compile(r"\b(?:\d{4}[-\s]?){3}\d{4}\b"),
     "ip_address": re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
-    "date_of_birth": re.compile(r"\b(?:0[1-9]|1[0-2])[/-](?:0[1-9]|[12]\d|3[01])[/-](?:19|20)\d{2}\b"),
+    "date_of_birth": re.compile(
+        r"\b(?:0[1-9]|1[0-2])[/-](?:0[1-9]|[12]\d|3[01])[/-](?:19|20)\d{2}\b"
+    ),
     "passport": re.compile(r"\b[A-Z]{1,2}\d{6,9}\b"),
 }
 
@@ -56,12 +58,14 @@ class PIIDetector:
             for match in pattern.finditer(text):
                 result.has_pii = True
                 result.pii_types.append(pii_type)
-                result.matches.append({
-                    "type": pii_type,
-                    "value": match.group(),
-                    "start": str(match.start()),
-                    "end": str(match.end()),
-                })
+                result.matches.append(
+                    {
+                        "type": pii_type,
+                        "value": match.group(),
+                        "start": str(match.start()),
+                        "end": str(match.end()),
+                    }
+                )
         # Deduplicate types
         result.pii_types = list(set(result.pii_types))
         return result
@@ -85,7 +89,4 @@ class PIIDetector:
 
     def has_pii(self, text: str) -> bool:
         """Quick check if text contains PII."""
-        for pattern in self.patterns.values():
-            if pattern.search(text):
-                return True
-        return False
+        return any(pattern.search(text) for pattern in self.patterns.values())

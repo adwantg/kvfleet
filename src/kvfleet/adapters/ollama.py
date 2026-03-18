@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
@@ -27,7 +28,9 @@ class OllamaAdapter(InferenceAdapter):
     Ollama uses its own API format at /api/chat.
     """
 
-    def __init__(self, endpoint: str, model_id: str = "", timeout: float = 60.0, **kwargs: Any) -> None:
+    def __init__(
+        self, endpoint: str, model_id: str = "", timeout: float = 60.0, **kwargs: Any
+    ) -> None:
         super().__init__(endpoint, model_id, timeout, **kwargs)
         self._client: httpx.AsyncClient | None = None
 
@@ -111,7 +114,9 @@ class OllamaAdapter(InferenceAdapter):
                 last_checked=time.time(),
             )
         except httpx.RequestError as e:
-            return EndpointHealth(endpoint=self.endpoint, healthy=False, error=str(e), last_checked=time.time())
+            return EndpointHealth(
+                endpoint=self.endpoint, healthy=False, error=str(e), last_checked=time.time()
+            )
 
     async def close(self) -> None:
         """Close the HTTP client."""

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from typing import Any
 
 from kvfleet.adapters.base import ChatRequest, ChatResponse, InferenceAdapter
@@ -100,25 +99,28 @@ class FallbackChain:
                     explanation.fallback_triggered = True
                     logger.info(
                         "Fallback succeeded: %s → %s (attempt %d)",
-                        primary_model, model_name, attempt + 1,
+                        primary_model,
+                        model_name,
+                        attempt + 1,
                     )
 
                 return response
 
             except asyncio.TimeoutError:
-                last_error = TimeoutError(f"Timeout after {self.config.timeout_ms}ms on {model_name}")
+                last_error = TimeoutError(
+                    f"Timeout after {self.config.timeout_ms}ms on {model_name}"
+                )
                 logger.warning("Timeout on model '%s', trying next in chain", model_name)
             except Exception as e:
                 last_error = e
                 logger.warning("Error on model '%s': %s, trying next", model_name, e)
                 # Brief backoff before retry
                 if attempt < len(chain) - 1:
-                    await asyncio.sleep(min(0.5 * (2 ** attempt), 5.0))
+                    await asyncio.sleep(min(0.5 * (2**attempt), 5.0))
 
         explanation.fallback_triggered = True
         raise RuntimeError(
-            f"All {len(chain)} models in fallback chain failed. "
-            f"Last error: {last_error}"
+            f"All {len(chain)} models in fallback chain failed. Last error: {last_error}"
         )
 
 
@@ -170,7 +172,9 @@ class EscalationChain:
 
             logger.info(
                 "Model '%s' confidence %.2f < threshold %.2f, escalating",
-                model_name, confidence, self.confidence_threshold,
+                model_name,
+                confidence,
+                self.confidence_threshold,
             )
 
         # Return last response if all below threshold

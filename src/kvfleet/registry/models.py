@@ -32,7 +32,9 @@ class ModelRegistry:
         if config.name in self._models:
             raise ValueError(f"Model '{config.name}' is already registered")
         self._models[config.name] = config
-        logger.info("Registered model '%s' (%s @ %s)", config.name, config.provider.value, config.endpoint)
+        logger.info(
+            "Registered model '%s' (%s @ %s)", config.name, config.provider.value, config.endpoint
+        )
 
     def unregister(self, name: str) -> None:
         """Remove a model from the registry.
@@ -99,9 +101,8 @@ class ModelRegistry:
                 continue
             if provider is not None and model.provider != provider:
                 continue
-            if tags:
-                if not all(model.tags.get(k) == v for k, v in tags.items()):
-                    continue
+            if tags and not all(model.tags.get(k) == v for k, v in tags.items()):
+                continue
             if data_class is not None and data_class not in model.allowed_data_classes:
                 continue
             if min_quality is not None and model.quality_score < min_quality:
@@ -110,9 +111,15 @@ class ModelRegistry:
                 continue
             if supports_tools is not None and model.capabilities.supports_tools != supports_tools:
                 continue
-            if supports_json_mode is not None and model.capabilities.supports_json_mode != supports_json_mode:
+            if (
+                supports_json_mode is not None
+                and model.capabilities.supports_json_mode != supports_json_mode
+            ):
                 continue
-            if supports_streaming is not None and model.capabilities.supports_streaming != supports_streaming:
+            if (
+                supports_streaming is not None
+                and model.capabilities.supports_streaming != supports_streaming
+            ):
                 continue
             result.append(model)
         return result

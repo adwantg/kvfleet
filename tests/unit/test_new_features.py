@@ -1,18 +1,17 @@
 """Tests for rate limit awareness, multimodal routing, cost sync, and dashboard."""
 
-import time
-import pytest
 
-from kvfleet.telemetry.rate_limits import RateLimitTracker, RateLimitState
-from kvfleet.telemetry.cost_sync import CostSyncManager, KNOWN_MODEL_COSTS
-from kvfleet.router.multimodal import (
-    detect_modality, filter_vision_capable, estimate_multimodal_cost,
-    ModalityDetection,
-)
-from kvfleet.gateway.dashboard import DashboardState
-from kvfleet.config.schema import ModelConfig, ModelCapabilities
 from kvfleet.adapters.base import ChatMessage
-
+from kvfleet.config.schema import ModelCapabilities, ModelConfig
+from kvfleet.gateway.dashboard import DashboardState
+from kvfleet.router.multimodal import (
+    ModalityDetection,
+    detect_modality,
+    estimate_multimodal_cost,
+    filter_vision_capable,
+)
+from kvfleet.telemetry.cost_sync import CostSyncManager
+from kvfleet.telemetry.rate_limits import RateLimitTracker
 
 # ───────────────────── Rate Limit Tracker ─────────────────────
 
@@ -56,10 +55,14 @@ class TestRateLimitTracker:
 
     def test_rate_limit_headers(self):
         tracker = RateLimitTracker()
-        tracker.record_rate_limit_headers("http://api:8000", "model-a", headers={
-            "x-ratelimit-limit-requests": "60",
-            "x-ratelimit-remaining-requests": "45",
-        })
+        tracker.record_rate_limit_headers(
+            "http://api:8000",
+            "model-a",
+            headers={
+                "x-ratelimit-limit-requests": "60",
+                "x-ratelimit-remaining-requests": "45",
+            },
+        )
         state = tracker.get_state("http://api:8000", "model-a")
         assert state.requests_per_minute == 60
         assert state.remaining_requests == 45
@@ -130,8 +133,12 @@ class TestCostSync:
     def test_config_sync(self):
         manager = CostSyncManager()
         models = [
-            ModelConfig(name="my-model", endpoint="http://a:8000",
-                        cost_per_1k_input_tokens=0.005, cost_per_1k_output_tokens=0.01),
+            ModelConfig(
+                name="my-model",
+                endpoint="http://a:8000",
+                cost_per_1k_input_tokens=0.005,
+                cost_per_1k_output_tokens=0.01,
+            ),
         ]
         count = manager.sync_from_config(models)
         assert count == 1
@@ -154,10 +161,16 @@ class TestModalityDetection:
 
     def test_image_in_content_parts(self):
         messages = [
-            {"role": "user", "content": [
-                {"type": "text", "text": "What's in this image?"},
-                {"type": "image_url", "image_url": {"url": "https://example.com/img.png", "detail": "high"}},
-            ]},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What's in this image?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "https://example.com/img.png", "detail": "high"},
+                    },
+                ],
+            },
         ]
         result = detect_modality(messages)
         assert result.has_images
@@ -168,11 +181,14 @@ class TestModalityDetection:
 
     def test_multiple_images(self):
         messages = [
-            {"role": "user", "content": [
-                {"type": "image_url", "image_url": {"url": "a.png", "detail": "low"}},
-                {"type": "image_url", "image_url": {"url": "b.png", "detail": "low"}},
-                {"type": "text", "text": "Compare these"},
-            ]},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": "a.png", "detail": "low"}},
+                    {"type": "image_url", "image_url": {"url": "b.png", "detail": "low"}},
+                    {"type": "text", "text": "Compare these"},
+                ],
+            },
         ]
         result = detect_modality(messages)
         assert result.image_count == 2
@@ -185,10 +201,15 @@ class TestModalityDetection:
         assert result.primary_modality == "audio"
 
     def test_video_priority(self):
-        messages = [{"role": "user", "content": [
-            {"type": "image_url", "image_url": {"url": "a.png"}},
-            {"type": "video", "data": "..."},
-        ]}]
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": "a.png"}},
+                    {"type": "video", "data": "..."},
+                ],
+            }
+        ]
         result = detect_modality(messages)
         assert result.primary_modality == "video"
 
@@ -205,10 +226,16 @@ class TestFilterVisionCapable:
 
     def test_vision_filters(self):
         models = [
-            ModelConfig(name="text-only", endpoint="http://a:8000",
-                        capabilities=ModelCapabilities(supports_vision=False)),
-            ModelConfig(name="vision-model", endpoint="http://b:8000",
-                        capabilities=ModelCapabilities(supports_vision=True)),
+            ModelConfig(
+                name="text-only",
+                endpoint="http://a:8000",
+                capabilities=ModelCapabilities(supports_vision=False),
+            ),
+            ModelConfig(
+                name="vision-model",
+                endpoint="http://b:8000",
+                capabilities=ModelCapabilities(supports_vision=True),
+            ),
         ]
         detection = ModalityDetection(has_images=True, image_count=1)
         result = filter_vision_capable(models, detection)
@@ -217,8 +244,7 @@ class TestFilterVisionCapable:
 
     def test_vision_tag_filter(self):
         models = [
-            ModelConfig(name="tagged-vision", endpoint="http://a:8000",
-                        tags={"vision": "true"}),
+            ModelConfig(name="tagged-vision", endpoint="http://a:8000", tags={"vision": "true"}),
             ModelConfig(name="no-vision", endpoint="http://b:8000"),
         ]
         detection = ModalityDetection(has_images=True, image_count=1)
