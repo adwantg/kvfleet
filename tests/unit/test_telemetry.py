@@ -1,6 +1,5 @@
 """Tests for telemetry, health manager, metrics, and GPU state."""
 
-
 from kvfleet.adapters.base import EndpointHealth
 from kvfleet.telemetry.gpu import GPUState, GPUStateAggregator
 from kvfleet.telemetry.health import HealthManager

@@ -1,6 +1,5 @@
 """Tests for KV-cache affinity, fingerprinting, and semantic cache."""
 
-
 from kvfleet.adapters.base import ChatMessage
 from kvfleet.cache.fingerprints import PromptFingerprint, PromptFingerprinter, _normalize_text
 from kvfleet.cache.kv_affinity import ConsistentHashRing, KVAffinityScorer, SessionAffinityStore

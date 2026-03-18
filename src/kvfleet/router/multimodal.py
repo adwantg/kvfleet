@@ -146,7 +146,11 @@ def filter_vision_capable(
     for model in models:
         supports_needed = True
 
-        if detection.has_images and not model.capabilities.supports_vision and model.tags.get("vision") != "true":
+        if (
+            detection.has_images
+            and not model.capabilities.supports_vision
+            and model.tags.get("vision") != "true"
+        ):
             # Check capabilities.supports_vision or tags
             supports_needed = False
 

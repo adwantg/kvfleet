@@ -1,6 +1,5 @@
 """Tests for kvfleet config schema and loader."""
 
-
 import pytest
 import yaml
 

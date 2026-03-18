@@ -1,6 +1,5 @@
 """Tests for rate limit awareness, multimodal routing, cost sync, and dashboard."""
 
-
 from kvfleet.adapters.base import ChatMessage
 from kvfleet.config.schema import ModelCapabilities, ModelConfig
 from kvfleet.gateway.dashboard import DashboardState
