@@ -887,6 +887,8 @@ Built-in pricing includes: GPT-4o, GPT-4o-mini, GPT-4, Claude 3.5/3, Gemini 2.0/
 
 Real-time web UI with zero external dependencies:
 
+![kvfleet Admin Dashboard](./assets/dashboard.png)
+
 ```python
 from kvfleet.gateway.dashboard import DashboardState, start_dashboard
 
