@@ -657,6 +657,7 @@ class TestMessageFieldPreservation:
         assert msg.tool_calls is not None
         assert len(msg.tool_calls) == 1
 
+
 # ===================================================================
 # BUG-7: to_openai_dict strictly sends ONLY temperature OR top_p
 # ===================================================================

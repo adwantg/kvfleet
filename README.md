@@ -1223,6 +1223,11 @@ python -m pytest tests/unit/test_router.py -v
 
 ## 📋 Changelog
 
+### v0.11.1 — Generation Parameters Patch
+
+**Bug Fixes:**
+* **BUG-7:** Fixed `to_openai_dict()` in base `InferenceAdapter` to only send either `temperature` or `top_p` at the same time, prioritizing `temperature` when both are set to overrides. This prevents `400 Bad Request` execution errors from models rejecting simultaneous parameters.
+
 ### v0.11.0 — Adapter Hardening & Gateway Stability
 
 **Bug Fixes & Security:**
