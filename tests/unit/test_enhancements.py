@@ -704,46 +704,40 @@ class TestGenerationParametersConflict:
         assert "temperature" not in d
         assert "top_p" not in d
 
+
 # ===================================================================
 # BUG-8 & BUG-9: Gateway drops undefined openAI kwargs (like tool_choice)
 # and drops tool_call_id from user messages when rendering JSON.
 # ===================================================================
 
+
 class TestGatewayPayloadPassThroughEdgeCases:
     """Verify tool_call_id preservation and extra_body param injection."""
-    
+
     def test_tool_call_id_preserved_in_to_openai_dict(self):
-        from kvfleet.adapters.base import ChatRequest, ChatMessage
-        
+        from kvfleet.adapters.base import ChatMessage, ChatRequest
+
         msg = ChatMessage(
-            role="tool",
-            content="75 degrees",
-            name="get_weather",
-            tool_call_id="call_123"
+            role="tool", content="75 degrees", name="get_weather", tool_call_id="call_123"
         )
         req = ChatRequest(messages=[msg])
         payload = req.to_openai_dict()
         msg_dict = payload["messages"][0]
-        
+
         assert msg_dict["role"] == "tool"
         assert msg_dict["name"] == "get_weather"
         assert msg_dict["content"] == "75 degrees"
         assert msg_dict["tool_call_id"] == "call_123"  # Fixed: no longer dropped
-        
+
     def test_extra_body_injected_to_openai_dict(self):
         from kvfleet.adapters.base import ChatRequest
-        
+
         req = ChatRequest(
             messages=[],
-            extra_body={
-                "tool_choice": "auto",
-                "frequency_penalty": 2.0,
-                "n": 2,
-                "seed": 42
-            }
+            extra_body={"tool_choice": "auto", "frequency_penalty": 2.0, "n": 2, "seed": 42},
         )
         payload = req.to_openai_dict()
-        
+
         assert payload["tool_choice"] == "auto"
         assert payload["frequency_penalty"] == 2.0
         assert payload["n"] == 2
