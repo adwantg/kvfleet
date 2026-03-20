@@ -656,3 +656,49 @@ class TestMessageFieldPreservation:
         )
         assert msg.tool_calls is not None
         assert len(msg.tool_calls) == 1
+
+# ===================================================================
+# BUG-7: to_openai_dict strictly sends ONLY temperature OR top_p
+# ===================================================================
+
+
+class TestGenerationParametersConflict:
+    """Verify temperature and top_p do not conflict."""
+
+    def test_temperature_prioritized_over_top_p(self):
+        from kvfleet.adapters.base import ChatRequest
+
+        req = ChatRequest(
+            messages=[],
+            temperature=0.7,
+            top_p=0.9,
+        )
+        d = req.to_openai_dict()
+        assert "temperature" in d
+        assert d["temperature"] == 0.7
+        assert "top_p" not in d
+
+    def test_top_p_sent_when_temperature_default(self):
+        from kvfleet.adapters.base import ChatRequest
+
+        req = ChatRequest(
+            messages=[],
+            temperature=1.0,  # Default
+            top_p=0.9,
+        )
+        d = req.to_openai_dict()
+        assert "top_p" in d
+        assert d["top_p"] == 0.9
+        assert "temperature" not in d
+
+    def test_neither_sent_when_both_default(self):
+        from kvfleet.adapters.base import ChatRequest
+
+        req = ChatRequest(
+            messages=[],
+            temperature=1.0,
+            top_p=1.0,
+        )
+        d = req.to_openai_dict()
+        assert "temperature" not in d
+        assert "top_p" not in d
