@@ -97,6 +97,19 @@ def create_gateway_app(
         # E-10: Request ID propagation
         inbound_request_id = request.headers.get("x-request-id")
 
+        known_keys = {
+            "messages",
+            "model",
+            "temperature",
+            "max_tokens",
+            "stream",
+            "top_p",
+            "stop",
+            "tools",
+            "response_format",
+        }
+        extra_body = {k: v for k, v in body.items() if k not in known_keys}
+
         chat_request = ChatRequest(
             messages=messages,
             model=body.get("model", ""),
@@ -108,6 +121,7 @@ def create_gateway_app(
             tools=body.get("tools"),
             response_format=body.get("response_format"),
             metadata=metadata,
+            extra_body=extra_body,
         )
 
         request_id = inbound_request_id or f"chatcmpl-{uuid.uuid4().hex[:24]}"

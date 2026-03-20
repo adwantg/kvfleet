@@ -1223,6 +1223,12 @@ python -m pytest tests/unit/test_router.py -v
 
 ## 📋 Changelog
 
+### v0.11.2 — Gateway Payload Pass-through Patch
+
+**Bug Fixes & Improvements:**
+* **BUG-8:** Fixed a gateway issue where the standard OpenAI parameters that were not explicitly typed (e.g., `tool_choice`, `frequency_penalty`, `presence_penalty`, `seed`, `max_completion_tokens`) were silently dropped. Unrecognized kwargs are now piped directly to the model using an `extra_body` mapping inside `ChatRequest`.
+* **BUG-9:** Fixed `to_openai_dict` discarding inbound `tool_call_id` and `tool_calls` array fields from `tool` and `assistant` contextual history messages. They are now preserved transparently.
+
 ### v0.11.1 — Generation Parameters Patch
 
 **Bug Fixes:**

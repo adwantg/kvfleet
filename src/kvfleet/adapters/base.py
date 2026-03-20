@@ -34,6 +34,7 @@ class ChatRequest:
     tools: list[dict[str, Any]] | None = None
     response_format: dict[str, str] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    extra_body: dict[str, Any] = field(default_factory=dict)
 
     def to_openai_dict(self) -> dict[str, Any]:
         """Convert to OpenAI API format."""
@@ -41,7 +42,13 @@ class ChatRequest:
             "messages": [
                 {
                     k: v
-                    for k, v in {"role": m.role, "content": m.content, "name": m.name}.items()
+                    for k, v in {
+                        "role": m.role,
+                        "content": m.content,
+                        "name": m.name,
+                        "tool_call_id": m.tool_call_id,
+                        "tool_calls": m.tool_calls,
+                    }.items()
                     if v is not None
                 }
                 for m in self.messages
@@ -61,6 +68,13 @@ class ChatRequest:
             data["tools"] = self.tools
         if self.response_format:
             data["response_format"] = self.response_format
+
+        # BUG-8: Inject any unsupported optional metadata/parameters
+        if self.extra_body:
+            for k, v in self.extra_body.items():
+                if k not in data:
+                    data[k] = v
+
         return data
 
 
