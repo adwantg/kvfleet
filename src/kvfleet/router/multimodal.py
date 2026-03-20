@@ -191,3 +191,69 @@ def estimate_multimodal_cost(
     if extra_tokens > 0:
         return (extra_tokens / 1000) * model.cost_per_1k_input_tokens
     return 0.0
+
+
+def filter_tool_capable(
+    models: list[ModelConfig],
+    request: Any,
+) -> list[ModelConfig]:
+    """Filter models to those supporting tool/function calling.
+
+    If the request contains tools, only models with
+    ``supports_tools=True`` are eligible.  When no capable model
+    exists the full list is returned with a warning so routing
+    can degrade gracefully rather than crash.
+
+    Args:
+        models: Candidate models.
+        request: ChatRequest (or any object with a ``tools`` attribute).
+
+    Returns:
+        Filtered list of tool-capable models.
+    """
+    tools = getattr(request, "tools", None)
+    if not tools:
+        return models
+
+    capable = [m for m in models if m.capabilities.supports_tools]
+    if not capable:
+        logger.warning(
+            "Request contains tools but no models are marked "
+            "supports_tools=True; returning all candidates"
+        )
+        return models
+    return capable
+
+
+def filter_json_mode_capable(
+    models: list[ModelConfig],
+    request: Any,
+) -> list[ModelConfig]:
+    """Filter models to those supporting JSON response mode.
+
+    If the request specifies ``response_format`` with type
+    ``json_object``, only models with ``supports_json_mode=True``
+    are eligible.  Graceful fallback when none are capable.
+
+    Args:
+        models: Candidate models.
+        request: ChatRequest (or any object with a ``response_format``
+            attribute).
+
+    Returns:
+        Filtered list of JSON-mode-capable models.
+    """
+    fmt = getattr(request, "response_format", None)
+    if not fmt or not isinstance(fmt, dict):
+        return models
+    if fmt.get("type") != "json_object":
+        return models
+
+    capable = [m for m in models if m.capabilities.supports_json_mode]
+    if not capable:
+        logger.warning(
+            "Request requires json_object response format but no models "
+            "are marked supports_json_mode=True; returning all candidates"
+        )
+        return models
+    return capable

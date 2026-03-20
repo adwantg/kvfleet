@@ -50,7 +50,14 @@ class TelemetryCollector:
     async def _collect_from(self, key: str, adapter: InferenceAdapter) -> None:
         """Collect health, metrics, and cache state from a single adapter."""
         try:
-            health = await adapter.health_check()
+            # E-7: Deduplicate health probes by endpoint
+            endpoint = getattr(adapter, "endpoint", key)
+            cached = self._health_cache.get(endpoint)
+            if cached and (time.time() - cached.last_checked) < 5.0:
+                # Recently probed — reuse cached result
+                health = cached
+            else:
+                health = await adapter.health_check()
             self._health_cache[health.endpoint] = health
         except Exception as e:
             self._health_cache[key] = EndpointHealth(

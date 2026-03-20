@@ -16,7 +16,7 @@ from kvfleet.adapters.triton import TritonAdapter
 from kvfleet.adapters.vllm import VLLMAdapter
 from kvfleet.cache.fingerprints import PromptFingerprinter
 from kvfleet.cache.kv_affinity import KVAffinityScorer
-from kvfleet.config.schema import FleetConfig, ProviderType
+from kvfleet.config.schema import FleetConfig, ProviderType, RouteStrategy
 from kvfleet.eval.shadow import ShadowTrafficManager
 from kvfleet.policy.engine import PolicyContext, PolicyEngine
 from kvfleet.policy.pii import PIIDetector
@@ -24,6 +24,7 @@ from kvfleet.policy.tenant import TenantManager
 from kvfleet.registry.models import ModelRegistry
 from kvfleet.router.explain import RouteExplanation
 from kvfleet.router.fallback import FallbackChain
+from kvfleet.router.multimodal import filter_json_mode_capable, filter_tool_capable
 from kvfleet.router.scoring import ScoringContext, ScoringEngine
 from kvfleet.router.strategies import RoutingStrategy, get_strategy
 from kvfleet.telemetry.collector import TelemetryCollector
@@ -143,6 +144,8 @@ class Router:
         tools: list[dict[str, Any]] | None = None,
         response_format: dict[str, str] | None = None,
         request_id: str | None = None,
+        strategy_override: RouteStrategy | None = None,
+        model_allowlist: list[str] | None = None,
     ) -> tuple[ChatResponse, RouteExplanation]:
         """Route a request to the best model.
 
@@ -184,10 +187,33 @@ class Router:
             strategy=self.config.strategy.value,
         )
 
-        # Step 1: Get candidate models
-        candidates = self.registry.list_models(enabled_only=True)
+        # Resolve active strategy (E-3: per-request override)
+        active_strategy = self.strategy
+        if strategy_override is not None:
+            try:
+                kwargs_s: dict[str, Any] = {}
+                if strategy_override.value == "hybrid_score":
+                    kwargs_s["scoring_engine"] = self.scoring_engine
+                active_strategy = get_strategy(strategy_override.value, **kwargs_s)
+                explanation.strategy = strategy_override.value
+                explanation.strategy_overridden = True
+            except (ValueError, KeyError):
+                logger.warning(
+                    "Invalid strategy override '%s', using default",
+                    strategy_override.value,
+                )
+
+        # Step 1: Get candidate models (E-6: only chat models)
+        candidates = self.registry.list_models(enabled_only=True, model_type="chat")
         if not candidates:
             raise RuntimeError("No enabled models in registry")
+
+        # Step 1.5: Model allowlist filtering (E-4)
+        if model_allowlist:
+            candidates = [c for c in candidates if c.name in model_allowlist]
+            if not candidates:
+                raise RuntimeError(f"No enabled models match allowlist: {model_allowlist}")
+            explanation.metadata["model_allowlist"] = model_allowlist
 
         # Step 2: Policy evaluation
         if self.config.policy.enabled:
@@ -212,6 +238,12 @@ class Router:
                 tenant_id, [c.name for c in candidates]
             )
             candidates = [c for c in candidates if c.name in candidate_names]
+
+        # Step 3.5: Capability filtering (E-2, E-8)
+        candidates = filter_tool_capable(candidates, request)
+        candidates = filter_json_mode_capable(candidates, request)
+        if not candidates:
+            raise RuntimeError("All models filtered by capability checks — no candidates remain")
 
         # Step 4: Fingerprint and compute cache affinity
         fingerprint = self.fingerprinter.fingerprint(request.messages)
@@ -241,7 +273,7 @@ class Router:
         )
 
         # Step 6: Strategy selection
-        candidate_scores = self.strategy.select(candidates, scoring_ctx)
+        candidate_scores = active_strategy.select(candidates, scoring_ctx)
         explanation.candidates = candidate_scores
 
         # Find selected model

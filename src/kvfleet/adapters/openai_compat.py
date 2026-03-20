@@ -10,7 +10,7 @@ import json
 import logging
 import time
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx
 
@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 class OpenAICompatAdapter(InferenceAdapter):
     """Adapter for OpenAI-compatible inference endpoints."""
 
+    # E-7: Class-level connection pool keyed by (endpoint, api_key)
+    _shared_pool: ClassVar[dict[tuple[str, str], httpx.AsyncClient]] = {}
+
     def __init__(
         self,
         endpoint: str,
@@ -39,19 +42,22 @@ class OpenAICompatAdapter(InferenceAdapter):
     ) -> None:
         super().__init__(endpoint, model_id, timeout, **kwargs)
         self.api_key = api_key
-        self._client: httpx.AsyncClient | None = None
+        self._pool_key = (endpoint, api_key)
 
     def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None or self._client.is_closed:
+        pool = OpenAICompatAdapter._shared_pool
+        client = pool.get(self._pool_key)
+        if client is None or client.is_closed:
             headers: dict[str, str] = {"Content-Type": "application/json"}
             if self.api_key:
                 headers["Authorization"] = f"Bearer {self.api_key}"
-            self._client = httpx.AsyncClient(
+            client = httpx.AsyncClient(
                 base_url=self.endpoint,
                 headers=headers,
                 timeout=self.timeout,
             )
-        return self._client
+            pool[self._pool_key] = client
+        return client
 
     async def chat(self, request: ChatRequest) -> ChatResponse:
         """Send a chat completion request."""
@@ -61,9 +67,12 @@ class OpenAICompatAdapter(InferenceAdapter):
             payload["model"] = self.model_id
         payload["stream"] = False
 
+        # E-1: Merge passthrough headers from request metadata
+        extra_headers = request.metadata.get("_passthrough_headers", {})
+
         start = time.monotonic()
         try:
-            resp = await client.post("/v1/chat/completions", json=payload)
+            resp = await client.post("/v1/chat/completions", json=payload, headers=extra_headers)
             resp.raise_for_status()
             data = resp.json()
         except httpx.HTTPStatusError as e:
@@ -101,7 +110,12 @@ class OpenAICompatAdapter(InferenceAdapter):
             payload["model"] = self.model_id
         payload["stream"] = True
 
-        async with client.stream("POST", "/v1/chat/completions", json=payload) as resp:
+        # E-1: Merge passthrough headers from request metadata
+        extra_headers = request.metadata.get("_passthrough_headers", {})
+
+        async with client.stream(
+            "POST", "/v1/chat/completions", json=payload, headers=extra_headers
+        ) as resp:
             resp.raise_for_status()
             async for line in resp.aiter_lines():
                 if not line.startswith("data: "):

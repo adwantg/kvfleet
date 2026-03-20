@@ -78,6 +78,7 @@ class ModelRegistry:
         supports_tools: bool | None = None,
         supports_json_mode: bool | None = None,
         supports_streaming: bool | None = None,
+        model_type: str | None = None,
     ) -> list[ModelConfig]:
         """List models with optional filtering.
 
@@ -120,6 +121,8 @@ class ModelRegistry:
                 supports_streaming is not None
                 and model.capabilities.supports_streaming != supports_streaming
             ):
+                continue
+            if model_type is not None and model.capabilities.model_type != model_type:
                 continue
             result.append(model)
         return result

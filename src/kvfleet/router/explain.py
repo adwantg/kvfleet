@@ -58,6 +58,7 @@ class RouteExplanation:
     fallback_chain: list[str] = field(default_factory=list)
     cache_affinity_used: bool = False
     cache_hit: bool = False
+    strategy_overridden: bool = False
     shadow_models: list[str] = field(default_factory=list)
     total_latency_ms: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)

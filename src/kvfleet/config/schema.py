@@ -48,6 +48,13 @@ class ModelCapabilities(BaseModel):
     supports_vision: bool = False
     max_context_window: int = 4096
     supported_languages: list[str] = Field(default_factory=lambda: ["en"])
+    model_type: str = Field(
+        default="chat",
+        description=(
+            "Model type: 'chat', 'embedding', 'completion', 'rerank'. "
+            "Non-chat models are excluded from chat routing automatically."
+        ),
+    )
 
 
 class ModelConfig(BaseModel):
@@ -228,6 +235,43 @@ class GatewayConfig(BaseModel):
     port: int = 8000
     api_key: str = ""
     cors_origins: list[str] = Field(default_factory=lambda: ["*"])
+    passthrough_headers: list[str] = Field(
+        default_factory=list,
+        description=(
+            "HTTP headers to forward from client request to backend adapters. "
+            "Case-insensitive matching. Example: ['X-Access-Token', 'X-Request-ID']"
+        ),
+    )
+    strategy_header: str = Field(
+        default="X-KVFleet-Strategy",
+        description=(
+            "HTTP header used to override routing strategy per request. "
+            "Value must map to a valid RouteStrategy enum value. "
+            "Set to empty string to disable."
+        ),
+    )
+    model_allowlist_header: str = Field(
+        default="X-KVFleet-Models",
+        description=(
+            "HTTP header used to restrict candidate models per request. "
+            "Value is a comma-separated list of model names. "
+            "Set to empty string to disable."
+        ),
+    )
+    tenant_header: str = Field(
+        default="",
+        description=(
+            "HTTP header name to extract tenant_id from. "
+            "Example: 'X-Tenant-ID'. Leave empty to disable."
+        ),
+    )
+    timeout_header: str = Field(
+        default="X-KVFleet-Timeout",
+        description=(
+            "HTTP header used to override fallback timeout in ms per request. "
+            "Value must be a positive integer. Set to empty string to disable."
+        ),
+    )
 
 
 class RouteRuleConfig(BaseModel):

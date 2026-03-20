@@ -90,9 +90,11 @@ class FallbackChain:
                     metadata=request.metadata,
                 )
 
+                # E-9: Use per-request timeout if provided, else config default
+                timeout_ms = request.metadata.get("_timeout_ms", self.config.timeout_ms)
                 response = await asyncio.wait_for(
                     adapter.chat(request_copy),
-                    timeout=self.config.timeout_ms / 1000.0,
+                    timeout=timeout_ms / 1000.0,
                 )
 
                 if attempt > 0:

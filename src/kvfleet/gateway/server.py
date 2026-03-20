@@ -64,6 +64,30 @@ def create_gateway_app(
         messages_raw = body.get("messages", [])
         messages = [ChatMessage(role=m["role"], content=m.get("content", "")) for m in messages_raw]
 
+        # E-1: Extract configured passthrough headers
+        passthrough: dict[str, str] = {}
+        gw_config = typed_router.config.gateway
+        for header_name in gw_config.passthrough_headers:
+            value = request.headers.get(header_name.lower())
+            if value:
+                passthrough[header_name] = value
+
+        metadata: dict[str, Any] = {}
+        if passthrough:
+            metadata["_passthrough_headers"] = passthrough
+
+        # E-9: Timeout override via header
+        if gw_config.timeout_header:
+            timeout_val = request.headers.get(gw_config.timeout_header.lower())
+            if timeout_val:
+                try:
+                    metadata["_timeout_ms"] = int(timeout_val)
+                except ValueError:
+                    logger.warning("Invalid timeout header value: %s", timeout_val)
+
+        # E-10: Request ID propagation
+        inbound_request_id = request.headers.get("x-request-id")
+
         chat_request = ChatRequest(
             messages=messages,
             model=body.get("model", ""),
@@ -73,16 +97,44 @@ def create_gateway_app(
             top_p=body.get("top_p", 1.0),
             tools=body.get("tools"),
             response_format=body.get("response_format"),
+            metadata=metadata,
         )
 
-        request_id = f"chatcmpl-{uuid.uuid4().hex[:24]}"
+        request_id = inbound_request_id or f"chatcmpl-{uuid.uuid4().hex[:24]}"
         tags = {"model_hint": body.get("model", "")} if body.get("model") else {}
+
+        # E-3: Strategy override via header
+        strategy_override = None
+        if gw_config.strategy_header:
+            strategy_val = request.headers.get(gw_config.strategy_header.lower())
+            if strategy_val:
+                try:
+                    from kvfleet.config.schema import RouteStrategy
+
+                    strategy_override = RouteStrategy(strategy_val)
+                except ValueError:
+                    logger.warning("Invalid strategy override: %s", strategy_val)
+
+        # E-4: Model allowlist via header
+        model_allowlist = None
+        if gw_config.model_allowlist_header:
+            allowlist_val = request.headers.get(gw_config.model_allowlist_header.lower())
+            if allowlist_val:
+                model_allowlist = [m.strip() for m in allowlist_val.split(",") if m.strip()]
+
+        # E-5: Tenant ID from header
+        tenant_id = None
+        if gw_config.tenant_header:
+            tenant_id = request.headers.get(gw_config.tenant_header.lower())
 
         try:
             response, explanation = await typed_router.route(
                 request=chat_request,
                 tags=tags,
                 request_id=request_id,
+                tenant_id=tenant_id,
+                strategy_override=strategy_override,
+                model_allowlist=model_allowlist,
             )
         except RuntimeError as e:
             return JSONResponse(
@@ -113,12 +165,14 @@ def create_gateway_app(
             "kvfleet_metadata": {
                 "selected_model": explanation.selected_model,
                 "strategy": explanation.strategy,
+                "strategy_overridden": explanation.strategy_overridden,
                 "cache_affinity_used": explanation.cache_affinity_used,
                 "total_latency_ms": explanation.total_latency_ms,
             },
         }
 
-        return JSONResponse(result)
+        # E-10: Include X-Request-ID in response headers
+        return JSONResponse(result, headers={"X-Request-ID": request_id})
 
     async def models_list(request: Request) -> JSONResponse:
         """Handle /v1/models requests."""
