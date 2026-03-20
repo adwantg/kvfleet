@@ -1223,6 +1223,19 @@ python -m pytest tests/unit/test_router.py -v
 
 ## 📋 Changelog
 
+### v0.11.0 — Adapter Hardening & Gateway Stability
+
+**Bug Fixes & Security:**
+* **BUG-1:** Fixed `CustomHTTPAdapter` configuration by adding `custom_headers`, `custom_chat_path`, `custom_health_path`, and `custom_request_template` to `ModelConfig` schema.
+* **BUG-2:** Fixed silent dropping of `tool_calls` in gateway responses; `ChatResponse` now properly serializes them to OpenAI-compatible format.
+* **BUG-3:** Added `api_key` support across *all* adapters (TGI, Triton, Ollama, CustomHTTP, plus base InferenceAdapter) to allow sending `Authorization: Bearer <key>` headers securely.
+* **BUG-4:** Fixed gateway discarding `stop` sequences from incoming chat completions requests.
+* **BUG-5:** Enhanced security in `save_config()` to prevent plaintext leaks of `api_key` to YAML files.
+* **BUG-6:** Fixed gateway omitting `name`, `tool_call_id`, and `tool_calls` when building `ChatMessage` objects from incoming requests.
+
+**Improvements:**
+* **IMPROVE-1:** Isolated Prometheus `CollectorRegistry` in `MetricsExporter` to prevent timeseries pollution across instances or test runs.
+
 ### v0.10.0 — Gateway Enhancements
 
 **New Features:**

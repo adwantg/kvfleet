@@ -62,7 +62,16 @@ def create_gateway_app(
 
         body = await request.json()
         messages_raw = body.get("messages", [])
-        messages = [ChatMessage(role=m["role"], content=m.get("content", "")) for m in messages_raw]
+        messages = [
+            ChatMessage(
+                role=m["role"],
+                content=m.get("content", ""),
+                name=m.get("name"),
+                tool_call_id=m.get("tool_call_id"),
+                tool_calls=m.get("tool_calls"),
+            )
+            for m in messages_raw
+        ]
 
         # E-1: Extract configured passthrough headers
         passthrough: dict[str, str] = {}
@@ -95,6 +104,7 @@ def create_gateway_app(
             max_tokens=body.get("max_tokens"),
             stream=body.get("stream", False),
             top_p=body.get("top_p", 1.0),
+            stop=body.get("stop"),
             tools=body.get("tools"),
             response_format=body.get("response_format"),
             metadata=metadata,
@@ -151,8 +161,13 @@ def create_gateway_app(
                 {
                     "index": 0,
                     "message": {
-                        "role": "assistant",
-                        "content": response.content,
+                        k: v
+                        for k, v in {
+                            "role": "assistant",
+                            "content": response.content,
+                            "tool_calls": response.tool_calls,
+                        }.items()
+                        if v is not None
                     },
                     "finish_reason": response.finish_reason,
                 }

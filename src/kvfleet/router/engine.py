@@ -119,10 +119,14 @@ class Router:
                 "endpoint": model.endpoint,
                 "model_id": model.get_model_id(),
                 "timeout": model.timeout_seconds,
+                "api_key": model.api_key,
             }
-            # Pass api_key if the adapter supports it (e.g., OpenAICompatAdapter)
-            if model.api_key:
-                adapter_kwargs["api_key"] = model.api_key
+            # BUG-1: Pass custom_http-specific config
+            if model.provider == ProviderType.CUSTOM_HTTP:
+                adapter_kwargs["headers"] = model.custom_headers
+                adapter_kwargs["chat_path"] = model.custom_chat_path
+                adapter_kwargs["health_path"] = model.custom_health_path
+                adapter_kwargs["request_template"] = model.custom_request_template
             adapter = adapter_cls(**adapter_kwargs)
             self._adapters[model.name] = adapter
             self.telemetry.register_adapter(model.name, adapter)

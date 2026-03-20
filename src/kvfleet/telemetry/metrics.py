@@ -5,7 +5,14 @@ from __future__ import annotations
 import logging
 
 try:
-    from prometheus_client import Counter, Gauge, Histogram, Info, start_http_server
+    from prometheus_client import (
+        CollectorRegistry,
+        Counter,
+        Gauge,
+        Histogram,
+        Info,
+        start_http_server,
+    )
 
     HAS_PROMETHEUS = True
 except ImportError:
@@ -29,10 +36,17 @@ class MetricsExporter:
     - kvfleet_model_queue_depth: Queue depth gauge
     """
 
-    def __init__(self, port: int = 9090, enabled: bool = True) -> None:
+    def __init__(
+        self,
+        port: int = 9090,
+        enabled: bool = True,
+        registry: CollectorRegistry | None = None,
+    ) -> None:
         self.port = port
         self.enabled = enabled and HAS_PROMETHEUS
         self._started = False
+        # Use a dedicated registry to avoid pollution across instances
+        self._registry = registry or CollectorRegistry(auto_describe=True)
 
         if self.enabled:
             self._init_metrics()
@@ -43,56 +57,67 @@ class MetricsExporter:
             "kvfleet_route_requests_total",
             "Total routing requests",
             ["strategy", "status"],
+            registry=self._registry,
         )
         self.route_latency = Histogram(
             "kvfleet_route_latency_seconds",
             "Routing decision latency",
             ["strategy"],
             buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0),
+            registry=self._registry,
         )
         self.model_selected = Counter(
             "kvfleet_model_selected_total",
             "Number of times each model was selected",
             ["model"],
+            registry=self._registry,
         )
         self.fallback_triggered = Counter(
             "kvfleet_fallback_triggered_total",
             "Number of fallback triggers",
             ["from_model", "to_model"],
+            registry=self._registry,
         )
         self.cache_hits = Counter(
             "kvfleet_cache_affinity_hits_total",
             "Cache affinity hits",
             ["type"],  # "session", "prefix", "hash"
+            registry=self._registry,
         )
         self.policy_blocks = Counter(
             "kvfleet_policy_blocks_total",
             "Requests blocked by policy",
             ["rule"],
+            registry=self._registry,
         )
         self.shadow_requests = Counter(
             "kvfleet_shadow_requests_total",
             "Shadow traffic requests",
             ["model"],
+            registry=self._registry,
         )
         self.model_health = Gauge(
             "kvfleet_model_health",
             "Model endpoint health (1=healthy, 0=unhealthy)",
             ["model", "endpoint"],
+            registry=self._registry,
         )
         self.model_queue_depth = Gauge(
             "kvfleet_model_queue_depth",
             "Model endpoint queue depth",
             ["model", "endpoint"],
+            registry=self._registry,
         )
         self.model_gpu_usage = Gauge(
             "kvfleet_model_gpu_memory_pct",
             "GPU memory usage percentage",
             ["model", "endpoint"],
+            registry=self._registry,
         )
         self.fleet_info = Info(
             "kvfleet_fleet",
             "Fleet information",
+            registry=self._registry,
         )
 
     def start_server(self) -> None:

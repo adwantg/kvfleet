@@ -50,7 +50,9 @@ class CustomHTTPAdapter(InferenceAdapter):
 
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
-            all_headers = {"Content-Type": "application/json", **self.extra_headers}
+            all_headers: dict[str, str] = {"Content-Type": "application/json", **self.extra_headers}
+            if self.api_key and "Authorization" not in all_headers:
+                all_headers["Authorization"] = f"Bearer {self.api_key}"
             self._client = httpx.AsyncClient(
                 base_url=self.endpoint, headers=all_headers, timeout=self.timeout
             )

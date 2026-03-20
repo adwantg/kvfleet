@@ -37,9 +37,12 @@ class TritonAdapter(InferenceAdapter):
 
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
+            headers: dict[str, str] = {"Content-Type": "application/json"}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
             self._client = httpx.AsyncClient(
                 base_url=self.endpoint,
-                headers={"Content-Type": "application/json"},
+                headers=headers,
                 timeout=self.timeout,
             )
         return self._client

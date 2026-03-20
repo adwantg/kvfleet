@@ -113,5 +113,8 @@ def save_config(config: FleetConfig, path: str | Path) -> None:
     config_path = Path(path)
     config_path.parent.mkdir(parents=True, exist_ok=True)
     data = config.model_dump(mode="json", exclude_defaults=True)
+    # BUG-5: Never write api_key to YAML — use env vars for secrets
+    for model_data in data.get("models", []):
+        model_data.pop("api_key", None)
     with open(config_path, "w") as f:
         yaml.dump(data, f, default_flow_style=False, sort_keys=False)

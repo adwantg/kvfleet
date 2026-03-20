@@ -101,6 +101,20 @@ class ModelConfig(BaseModel):
         ),
     )
 
+    # CustomHTTP provider config
+    custom_headers: dict[str, str] = Field(
+        default_factory=dict, description="Extra headers for custom_http provider"
+    )
+    custom_chat_path: str = Field(
+        default="/generate", description="Chat endpoint path for custom_http provider"
+    )
+    custom_health_path: str = Field(
+        default="/health", description="Health endpoint path for custom_http provider"
+    )
+    custom_request_template: dict[str, Any] = Field(
+        default_factory=dict, description="Base payload template for custom_http provider"
+    )
+
     # Timeout
     timeout_seconds: float = Field(default=60.0, description="Request timeout")
     max_retries: int = Field(default=2, description="Retries on transient failure")

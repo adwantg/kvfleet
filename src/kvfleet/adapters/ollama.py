@@ -36,7 +36,12 @@ class OllamaAdapter(InferenceAdapter):
 
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(base_url=self.endpoint, timeout=self.timeout)
+            headers: dict[str, str] = {}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
+            self._client = httpx.AsyncClient(
+                base_url=self.endpoint, headers=headers, timeout=self.timeout
+            )
         return self._client
 
     async def chat(self, request: ChatRequest) -> ChatResponse:

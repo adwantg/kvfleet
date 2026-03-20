@@ -135,11 +135,17 @@ class InferenceAdapter(abc.ABC):
     """
 
     def __init__(
-        self, endpoint: str, model_id: str = "", timeout: float = 60.0, **kwargs: Any
+        self,
+        endpoint: str,
+        model_id: str = "",
+        timeout: float = 60.0,
+        api_key: str = "",
+        **kwargs: Any,
     ) -> None:
         self.endpoint = endpoint.rstrip("/")
         self.model_id = model_id
         self.timeout = timeout
+        self.api_key = api_key
 
     @abc.abstractmethod
     async def chat(self, request: ChatRequest) -> ChatResponse:

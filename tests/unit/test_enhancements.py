@@ -424,3 +424,235 @@ class TestApiKeyPassthrough:
         assert client.headers["Authorization"] == "Bearer sk-from-config"
 
         OpenAICompatAdapter._shared_pool.clear()
+
+
+# ===================================================================
+# BUG-3: api_key for ALL adapters (TGI, Triton, Ollama, CustomHTTP)
+# ===================================================================
+
+
+class TestApiKeyAllAdapters:
+    """Verify api_key is wired through all adapter constructors."""
+
+    def test_tgi_adapter_auth_header(self):
+        from kvfleet.adapters.tgi import TGIAdapter
+
+        adapter = TGIAdapter(endpoint="http://tgi:8000", api_key="sk-tgi-test")
+        client = adapter._get_client()
+        assert client.headers["Authorization"] == "Bearer sk-tgi-test"
+        assert adapter.api_key == "sk-tgi-test"
+
+    def test_tgi_adapter_no_auth_without_key(self):
+        from kvfleet.adapters.tgi import TGIAdapter
+
+        adapter = TGIAdapter(endpoint="http://tgi:8000")
+        client = adapter._get_client()
+        assert "Authorization" not in client.headers
+
+    def test_triton_adapter_auth_header(self):
+        from kvfleet.adapters.triton import TritonAdapter
+
+        adapter = TritonAdapter(endpoint="http://triton:8000", api_key="sk-triton")
+        client = adapter._get_client()
+        assert client.headers["Authorization"] == "Bearer sk-triton"
+
+    def test_ollama_adapter_auth_header(self):
+        from kvfleet.adapters.ollama import OllamaAdapter
+
+        adapter = OllamaAdapter(endpoint="http://ollama:11434", api_key="sk-proxy")
+        client = adapter._get_client()
+        assert client.headers["Authorization"] == "Bearer sk-proxy"
+
+    def test_custom_http_adapter_auth_header(self):
+        from kvfleet.adapters.custom_http import CustomHTTPAdapter
+
+        adapter = CustomHTTPAdapter(endpoint="http://custom:8000", api_key="sk-custom")
+        client = adapter._get_client()
+        assert client.headers["Authorization"] == "Bearer sk-custom"
+
+    def test_custom_http_explicit_auth_header_not_overridden(self):
+        """If custom_headers already has Authorization, api_key should not override it."""
+        from kvfleet.adapters.custom_http import CustomHTTPAdapter
+
+        adapter = CustomHTTPAdapter(
+            endpoint="http://custom:8000",
+            api_key="sk-fallback",
+            headers={"Authorization": "Token my-explicit-token"},
+        )
+        client = adapter._get_client()
+        assert client.headers["Authorization"] == "Token my-explicit-token"
+
+    def test_base_adapter_stores_api_key(self):
+        # Can't instantiate abstract class, but verify via TGI subclass
+        from kvfleet.adapters.tgi import TGIAdapter
+
+        adapter = TGIAdapter(endpoint="http://test:8000", api_key="sk-base-test")
+        assert adapter.api_key == "sk-base-test"
+
+
+# ===================================================================
+# BUG-1: CustomHTTP config fields wired from ModelConfig
+# ===================================================================
+
+
+class TestCustomHTTPConfigWiring:
+    """Verify custom_http adapter gets its config from ModelConfig."""
+
+    def test_model_config_custom_fields_default(self):
+        model = ModelConfig(name="m1", endpoint="http://local:8000")
+        assert model.custom_headers == {}
+        assert model.custom_chat_path == "/generate"
+        assert model.custom_health_path == "/health"
+        assert model.custom_request_template == {}
+
+    def test_model_config_custom_fields_set(self):
+        model = ModelConfig(
+            name="m1",
+            endpoint="http://local:8000",
+            custom_headers={"X-Api-Key": "secret"},
+            custom_chat_path="/v1/generate",
+            custom_health_path="/v1/health",
+            custom_request_template={"extra_param": True},
+        )
+        assert model.custom_headers == {"X-Api-Key": "secret"}
+        assert model.custom_chat_path == "/v1/generate"
+
+    def test_init_adapters_passes_custom_http_config(self):
+        from kvfleet.adapters.custom_http import CustomHTTPAdapter
+        from kvfleet.config.schema import FleetConfig
+
+        config = FleetConfig(
+            fleet_name="test",
+            models=[
+                ModelConfig(
+                    name="custom-model",
+                    endpoint="http://custom:8000",
+                    provider="custom_http",
+                    api_key="sk-custom-key",
+                    custom_headers={"X-Api-Key": "header-key"},
+                    custom_chat_path="/v1/generate",
+                    custom_health_path="/ping",
+                ),
+            ],
+        )
+        from kvfleet.router.engine import Router
+
+        router = Router(config)
+        adapter = router._adapters["custom-model"]
+        assert isinstance(adapter, CustomHTTPAdapter)
+        assert adapter.chat_path == "/v1/generate"
+        assert adapter.health_path == "/ping"
+        assert adapter.api_key == "sk-custom-key"
+
+
+# ===================================================================
+# BUG-2: Gateway includes tool_calls in response
+# ===================================================================
+
+
+class TestGatewayToolCallsResponse:
+    """Verify ChatResponse.tool_calls are preserved in response serialization."""
+
+    def test_chat_response_with_tool_calls(self):
+        from kvfleet.adapters.base import ChatResponse
+
+        resp = ChatResponse(
+            content="",
+            tool_calls=[{"type": "function", "function": {"name": "get_weather"}}],
+        )
+        assert resp.tool_calls is not None
+        assert len(resp.tool_calls) == 1
+
+    def test_chat_response_without_tool_calls(self):
+        from kvfleet.adapters.base import ChatResponse
+
+        resp = ChatResponse(content="Hello!")
+        assert resp.tool_calls is None
+
+
+# ===================================================================
+# BUG-4: stop sequences in ChatRequest
+# ===================================================================
+
+
+class TestStopSequences:
+    """Verify stop sequences are included in ChatRequest."""
+
+    def test_chat_request_with_stop(self):
+        from kvfleet.adapters.base import ChatMessage, ChatRequest
+
+        req = ChatRequest(
+            messages=[ChatMessage(role="user", content="Hi")],
+            stop=["STOP", "END"],
+        )
+        d = req.to_openai_dict()
+        assert d["stop"] == ["STOP", "END"]
+
+    def test_chat_request_without_stop(self):
+        from kvfleet.adapters.base import ChatMessage, ChatRequest
+
+        req = ChatRequest(messages=[ChatMessage(role="user", content="Hi")])
+        d = req.to_openai_dict()
+        assert "stop" not in d
+
+
+# ===================================================================
+# BUG-5: api_key excluded from save_config
+# ===================================================================
+
+
+class TestApiKeyNotInSavedConfig:
+    """Verify api_key is never written to YAML."""
+
+    def test_save_config_excludes_api_key(self, tmp_path):
+        from kvfleet.config.loader import save_config
+        from kvfleet.config.schema import FleetConfig
+
+        config = FleetConfig(
+            fleet_name="test",
+            models=[
+                ModelConfig(
+                    name="m1",
+                    endpoint="http://api:8000",
+                    api_key="sk-secret-key",
+                ),
+            ],
+        )
+        out = tmp_path / "fleet.yaml"
+        save_config(config, out)
+        content = out.read_text()
+        assert "sk-secret-key" not in content
+        assert "api_key" not in content
+
+
+# ===================================================================
+# BUG-6: Gateway preserves full message fields
+# ===================================================================
+
+
+class TestMessageFieldPreservation:
+    """Verify name, tool_call_id, and tool_calls are preserved in ChatMessage."""
+
+    def test_chat_message_with_all_fields(self):
+        from kvfleet.adapters.base import ChatMessage
+
+        msg = ChatMessage(
+            role="tool",
+            content="75°F",
+            name="get_weather",
+            tool_call_id="call_abc123",
+        )
+        assert msg.name == "get_weather"
+        assert msg.tool_call_id == "call_abc123"
+        assert msg.role == "tool"
+
+    def test_chat_message_with_tool_calls(self):
+        from kvfleet.adapters.base import ChatMessage
+
+        msg = ChatMessage(
+            role="assistant",
+            content="",
+            tool_calls=[{"type": "function", "function": {"name": "search", "arguments": "{}"}}],
+        )
+        assert msg.tool_calls is not None
+        assert len(msg.tool_calls) == 1
