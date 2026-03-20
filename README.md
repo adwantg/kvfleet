@@ -35,6 +35,10 @@
 | **🔐 Tenant-Aware Routing** | Per-team model preferences, blocked lists, and budget isolation |
 | **📝 Semantic Cache** | Hash-based dedup cache for near-duplicate prompts |
 | **🔄 Replay Engine** | Replay production traffic against candidate models for offline evaluation |
+| **🧰 Capability Filtering** | Auto-exclude models lacking tool-use or JSON mode support |
+| **🎯 Per-Request Overrides** | Override strategy, model allowlist, and timeout per request via headers |
+| **🏷️ Model Type Classification** | Classify models as `chat`, `embedding`, `rerank` — non-chat excluded from routing |
+| **🔗 Shared Connection Pool** | Adapters sharing an endpoint reuse a single HTTP client + health probe dedup |
 
 ---
 
@@ -714,6 +718,185 @@ response = client.chat.completions.create(
 )
 ```
 
+### 🎯 Gateway Enhancements (v0.10)
+
+The gateway supports per-request overrides, capability-aware routing, and request tracing — all configurable via `fleet.yaml`.
+
+#### Header Pass-Through (E-1)
+
+Forward arbitrary HTTP headers from clients through to backend models:
+
+```yaml
+# fleet.yaml
+gateway:
+  passthrough_headers:
+    - X-Access-Token
+    - X-Correlation-ID
+    - X-Trace-Parent
+```
+
+```bash
+# Client sends headers → they reach the backend automatically
+curl http://localhost:8000/v1/chat/completions \
+  -H "X-Access-Token: tok_abc123" \
+  -H "X-Correlation-ID: req-789" \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "Hello"}]}'
+```
+
+#### Tool-Use & JSON Mode Capability Filtering (E-2, E-8)
+
+Requests with `tools` or `response_format: {type: json_object}` are automatically routed only to models that support those features:
+
+```yaml
+models:
+  - name: gpt-4o
+    capabilities:
+      supports_tools: true
+      supports_json_mode: true
+  - name: llama-3-8b
+    capabilities:
+      supports_tools: false
+      supports_json_mode: false
+```
+
+```python
+# This request will only be routed to gpt-4o (has tool support)
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "What's the weather?"}],
+    tools=[{
+        "type": "function",
+        "function": {"name": "get_weather", "parameters": {}}
+    }],
+)
+
+# This request will only go to JSON-capable models
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "List 3 colors as JSON"}],
+    response_format={"type": "json_object"},
+)
+```
+
+#### Per-Request Strategy Override (E-3)
+
+Override the fleet-wide routing strategy on a per-request basis:
+
+```yaml
+gateway:
+  strategy_header: X-KVFleet-Strategy  # default
+```
+
+```bash
+# Force cost-first for this request, even if fleet uses hybrid_score
+curl http://localhost:8000/v1/chat/completions \
+  -H "X-KVFleet-Strategy: cost_first" \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "Quick test"}]}'
+```
+
+Supported values: `cost_first`, `latency_first`, `quality_first`, `hybrid_score`, `cheap_cascade`, `round_robin`, `weighted`, `random`, `semantic`, `domain`, `epsilon_greedy`, `ucb1`, `thompson_sampling`, `exp3`
+
+#### Per-Request Model Allowlist (E-4)
+
+Restrict which models can serve a specific request:
+
+```bash
+# Only consider these two models for this request
+curl http://localhost:8000/v1/chat/completions \
+  -H "X-KVFleet-Models: llama-3-70b, gpt-4o" \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "Important task"}]}'
+```
+
+#### Tenant ID from Header (E-5)
+
+Extract tenant identity from a configurable header for per-tenant routing and budget enforcement:
+
+```yaml
+gateway:
+  tenant_header: X-Tenant-ID
+```
+
+```bash
+curl http://localhost:8000/v1/chat/completions \
+  -H "X-Tenant-ID: team-ml" \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "Hello"}]}'
+# → Routes according to team-ml's model preferences and budget
+```
+
+#### Model Type Classification (E-6)
+
+Classify models as `chat`, `embedding`, `completion`, or `rerank`. Non-chat models are automatically excluded from `/v1/chat/completions` routing:
+
+```yaml
+models:
+  - name: gpt-4o
+    capabilities:
+      model_type: chat  # default
+  - name: text-embedding-3
+    capabilities:
+      model_type: embedding  # excluded from chat routing
+  - name: reranker-v2
+    capabilities:
+      model_type: rerank  # excluded from chat routing
+```
+
+```python
+# Programmatic filtering
+from kvfleet.registry.models import ModelRegistry
+
+reg = ModelRegistry()
+chat_models = reg.list_models(model_type="chat")       # Only chat models
+embeddings = reg.list_models(model_type="embedding")    # Only embedding models
+```
+
+#### Per-Request Timeout Override (E-9)
+
+Override the default timeout per request:
+
+```bash
+# Allow 30 seconds for this complex request (value in milliseconds)
+curl http://localhost:8000/v1/chat/completions \
+  -H "X-KVFleet-Timeout: 30000" \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "Write a detailed essay..."}]}'
+```
+
+#### Request ID Propagation (E-10)
+
+Send `X-Request-ID` to trace requests end-to-end. If not provided, one is generated automatically:
+
+```bash
+curl -v http://localhost:8000/v1/chat/completions \
+  -H "X-Request-ID: my-trace-001" \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "Hello"}]}'
+# Response headers include:
+#   X-Request-ID: my-trace-001
+# Response body includes:
+#   {"id": "my-trace-001", ...}
+```
+
+#### Shared Connection Pooling (E-7)
+
+Adapters that share the same endpoint and API key automatically reuse a single HTTP connection pool, reducing memory and connection overhead. Health probes are also deduplicated with a 5-second TTL to avoid redundant checks.
+
+```yaml
+# These two models share an endpoint → one connection pool
+models:
+  - name: llama-3-8b
+    endpoint: http://gpu-cluster:8000
+    provider: openai_compat
+    model_id: meta-llama/Llama-3-8B
+  - name: llama-3-70b
+    endpoint: http://gpu-cluster:8000  # Same endpoint!
+    provider: openai_compat
+    model_id: meta-llama/Llama-3-70B
+```
+
 ### 🖥️ Health Monitoring & Circuit Breakers
 
 ```python
@@ -1038,9 +1221,51 @@ python -m pytest tests/unit/test_router.py -v
 
 ---
 
+## 📋 Changelog
+
+### v0.10.0 — Gateway Enhancements
+
+**New Features:**
+
+| ID | Enhancement | Priority |
+|---|---|---|
+| E-1 | **Header pass-through** — forward arbitrary HTTP headers from client to backend | P0 |
+| E-2 | **Tool-use capability filter** — auto-exclude models without `supports_tools` | P0 |
+| E-3 | **Per-request strategy override** — `X-KVFleet-Strategy` header | P1 |
+| E-4 | **Per-request model allowlist** — `X-KVFleet-Models` header | P1 |
+| E-5 | **Tenant ID from header** — configurable `tenant_header` | P1 |
+| E-6 | **Model type classification** — `chat`/`embedding`/`rerank` with auto-filtering | P2 |
+| E-7 | **Shared connection pool** — class-level HTTP client reuse + health probe dedup | P2 |
+| E-8 | **JSON mode capability filter** — auto-exclude non-`supports_json_mode` models | P0 |
+| E-9 | **Per-request timeout override** — `X-KVFleet-Timeout` header (ms) | P1 |
+| E-10 | **Request ID propagation** — `X-Request-ID` forwarded/generated in responses | P1 |
+
+**Files changed:** `schema.py`, `server.py`, `openai_compat.py`, `multimodal.py`, `engine.py`, `explain.py`, `fallback.py`, `models.py`, `collector.py`
+
+**Tests:** 33 new tests (225 total), all passing
+
+### v0.9.0 — Initial Release
+
+- 14 routing strategies (static, weighted, rules, cost/latency/quality-first, cheap cascade, hybrid score, semantic, domain, ε-greedy, UCB1, Thompson sampling, Exp3)
+- 6 adapter backends (vLLM, Ollama, TGI, Triton, OpenAI-compatible, Custom HTTP)
+- KV-cache affinity routing with consistent hashing
+- Multi-objective scoring across cost, latency, quality, cache, hardware, compliance
+- Policy engine with PII detection, data classification, data residency, tenant isolation
+- OpenAI-compatible gateway with admin dashboard
+- Fallback & retry chains with circuit breakers
+- Shadow traffic, replay engine, Prometheus metrics
+- Rate limit awareness with auto-throttling
+- Vision/multimodal routing
+- Model cost sync with 30+ built-in prices
+- Semantic dedup cache
+- Budget & quotas per tenant
+- SDK (async + sync clients) and CLI
+
+---
+
 ## 🗺️ Roadmap
 
-- **v0.9.0** (current): 14 strategies, 6 adapters, policy engine, cache affinity, shadow, bandit routing, semantic routing, gateway, CLI
+- **v0.10.0** (current): Gateway enhancements — capability filtering, per-request overrides, model type classification, connection pooling
 - **v1.0**: Canary rollouts, SLO-aware routing, A/B testing framework
 - **v2.0**: Generative semantic cache, auto-escalation, model fine-tuning integration
 
