@@ -1,6 +1,6 @@
 """kvfleet — KV-cache-aware intelligent routing for self-hosted and hybrid LLM fleets."""
 
-__version__ = "0.11.0"
+__version__ = "0.11.1"
 
 from kvfleet.config.loader import load_config, save_config
 from kvfleet.config.schema import FleetConfig, ModelConfig, RouteStrategy

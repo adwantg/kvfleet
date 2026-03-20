@@ -47,10 +47,12 @@ class ChatRequest:
                 for m in self.messages
             ],
             "model": self.model,
-            "temperature": self.temperature,
             "stream": self.stream,
-            "top_p": self.top_p,
         }
+        if self.temperature != 1.0:
+            data["temperature"] = self.temperature
+        elif self.top_p != 1.0:
+            data["top_p"] = self.top_p
         if self.max_tokens is not None:
             data["max_tokens"] = self.max_tokens
         if self.stop:
