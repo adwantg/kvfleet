@@ -92,6 +92,14 @@ class ModelConfig(BaseModel):
     )
     weight: float = Field(default=1.0, ge=0.0, description="Weight for weighted routing")
     enabled: bool = Field(default=True, description="Whether this model is available for routing")
+    # Authentication
+    api_key: str = Field(
+        default="",
+        description=(
+            "API key for this model's endpoint. "
+            "Sent as 'Authorization: Bearer <key>' to the backend."
+        ),
+    )
 
     # Timeout
     timeout_seconds: float = Field(default=60.0, description="Request timeout")

@@ -354,3 +354,73 @@ class TestE7SharedEndpoint:
         assert client1 is not client2
 
         OpenAICompatAdapter._shared_pool.clear()
+
+
+# ===================================================================
+# BUG FIX: api_key pass-through from ModelConfig to adapters
+# ===================================================================
+
+
+class TestApiKeyPassthrough:
+    """Verify api_key is configurable on ModelConfig and passed to adapters."""
+
+    def test_model_config_api_key_defaults_empty(self):
+        model = ModelConfig(name="m1", endpoint="http://local:8000")
+        assert model.api_key == ""
+
+    def test_model_config_api_key_set(self):
+        model = ModelConfig(name="m1", endpoint="http://local:8000", api_key="sk-test-123")
+        assert model.api_key == "sk-test-123"
+
+    def test_adapter_receives_api_key(self):
+        from kvfleet.adapters.openai_compat import OpenAICompatAdapter
+
+        OpenAICompatAdapter._shared_pool.clear()
+
+        adapter = OpenAICompatAdapter(endpoint="http://api:8000", model_id="m1", api_key="sk-key")
+        client = adapter._get_client()
+        assert "Authorization" in client.headers
+        assert client.headers["Authorization"] == "Bearer sk-key"
+
+        OpenAICompatAdapter._shared_pool.clear()
+
+    def test_adapter_no_auth_header_without_key(self):
+        from kvfleet.adapters.openai_compat import OpenAICompatAdapter
+
+        OpenAICompatAdapter._shared_pool.clear()
+
+        adapter = OpenAICompatAdapter(endpoint="http://api:8000", model_id="m1", api_key="")
+        client = adapter._get_client()
+        assert "Authorization" not in client.headers
+
+        OpenAICompatAdapter._shared_pool.clear()
+
+    def test_init_adapters_passes_api_key(self):
+        """End-to-end: Router._init_adapters should pass api_key from config."""
+        from kvfleet.adapters.openai_compat import OpenAICompatAdapter
+        from kvfleet.config.schema import FleetConfig
+
+        OpenAICompatAdapter._shared_pool.clear()
+
+        config = FleetConfig(
+            fleet_name="test",
+            models=[
+                ModelConfig(
+                    name="openai-model",
+                    endpoint="http://api:8000",
+                    provider="openai_compat",
+                    api_key="sk-from-config",
+                ),
+            ],
+        )
+        from kvfleet.router.engine import Router
+
+        router = Router(config)
+        adapter = router._adapters["openai-model"]
+        assert isinstance(adapter, OpenAICompatAdapter)
+        assert adapter.api_key == "sk-from-config"
+
+        client = adapter._get_client()
+        assert client.headers["Authorization"] == "Bearer sk-from-config"
+
+        OpenAICompatAdapter._shared_pool.clear()

@@ -158,6 +158,7 @@ class OpenAICompatAdapter(InferenceAdapter):
             )
 
     async def close(self) -> None:
-        """Close the HTTP client."""
-        if self._client and not self._client.is_closed:
-            await self._client.aclose()
+        """Close the HTTP client from the shared pool."""
+        client = OpenAICompatAdapter._shared_pool.pop(self._pool_key, None)
+        if client and not client.is_closed:
+            await client.aclose()

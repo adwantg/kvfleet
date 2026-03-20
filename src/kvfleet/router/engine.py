@@ -115,11 +115,15 @@ class Router:
             if not model.enabled:
                 continue
             adapter_cls = ADAPTER_MAP.get(model.provider, OpenAICompatAdapter)
-            adapter = adapter_cls(
-                endpoint=model.endpoint,
-                model_id=model.get_model_id(),
-                timeout=model.timeout_seconds,
-            )
+            adapter_kwargs: dict[str, Any] = {
+                "endpoint": model.endpoint,
+                "model_id": model.get_model_id(),
+                "timeout": model.timeout_seconds,
+            }
+            # Pass api_key if the adapter supports it (e.g., OpenAICompatAdapter)
+            if model.api_key:
+                adapter_kwargs["api_key"] = model.api_key
+            adapter = adapter_cls(**adapter_kwargs)
             self._adapters[model.name] = adapter
             self.telemetry.register_adapter(model.name, adapter)
 
